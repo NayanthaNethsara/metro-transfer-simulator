@@ -5,3 +5,7 @@ __pycache__/
 Thumbs.db
 .env
 *.key
+docs/metro_transfer_simulator_implementation_plan_v3_1.md
+AGENT.md
+AGENT_LOG.md
+CODE_PROVENANCE.md
