@@ -3,8 +3,9 @@ window.SIM_CONFIG = {
   defaultReplications: 100,
 
   timeWindow: {
-    dayStartMin: 270,
-    dayEndMin: 1350,
+    dayStartMin: 240,
+    dayEndMin: 1440,
+    preDepartureAccumMin: 30,
     trafficStepMin: 5,
     peakWindowsMin: [
       [360, 540],
@@ -19,7 +20,9 @@ window.SIM_CONFIG = {
     alightTimeSec: 2.0,
     transferMeanPax: 5.0,
     walkTimeMin: 3.5,
-    borellaInterpolationFraction: 0.5
+    borellaInterpolationFraction: 0.5,
+    missedLastConnectorPenaltyMin: 60.0,
+    etaNoiseSdMin: 1.0
   },
 
   objectiveWeights: {
@@ -32,19 +35,13 @@ window.SIM_CONFIG = {
     stateSpeedsKmph: [30.0, 15.0, 5.0],
     jamParamBounds: [0.01, 0.85],
     targetSpeedOffpeakKmph: 22.0,
-    targetSpeedPeakKmph: 14.0,
-    legSpeedAlpha: {
-      CM01_MAK_to_FOR: 0.996,
-      CM01_FOR_to_MAK: 1.151,
-      CM03_MAK_to_KAD: 0.929,
-      CM03_KAD_to_MAK: 0.779
-    }
+    targetSpeedPeakKmph: 14.0
   },
 
   notebookReference: {
-    description: "Baseline schedule holding (h = 3.0 min, shift = 0 min, w = 3.5 min, seed = 42)",
-    expectedMissRatePct: 38.5,
-    tolerancePct: 6.0
+    description: "Pending Colab verification lock-in after runtime execution (Policy: realtime, h = 3.0 min, shift = 0 min, w = 3.5 min, seed = 42)",
+    status: "pending_colab_run",
+    tolerancePct: 5.0
   },
 
   routes: {
@@ -54,7 +51,7 @@ window.SIM_CONFIG = {
       role: "Group A Connector",
       borellaStopIndex: 3,
       segmentDistancesKm: [12.5, 4.0, 2.5, 2.5, 3.0],
-      baseArrivalRatePaxPerMin: [0.65, 0.55, 0.50, 0.45, 0.25, 0.0],
+      baseArrivalRatePaxPerMin: [0.45, 0.35, 0.30, 0.20, 0.12, 0.0],
       stops: ["Makumbura", "Sethsiripaya", "Rajagiriya", "Borella (Singer Mega)", "Town Hall", "Colombo Fort"]
     },
     CM01_FOR_to_MAK: {
@@ -63,7 +60,7 @@ window.SIM_CONFIG = {
       role: "Group B Feeder",
       borellaStopIndex: 3,
       segmentDistancesKm: [1.0, 2.5, 2.5, 2.5, 4.0, 12.5],
-      baseArrivalRatePaxPerMin: [0.55, 0.65, 0.50, 0.45, 0.35, 0.20, 0.0],
+      baseArrivalRatePaxPerMin: [0.30, 0.35, 0.25, 0.20, 0.15, 0.10, 0.0],
       stops: ["Colombo Fort", "Pettah", "Town Hall", "Borella (Singer Mega)", "Rajagiriya", "Sethsiripaya", "Makumbura"]
     },
     CM03_MAK_to_KAD: {
@@ -72,7 +69,7 @@ window.SIM_CONFIG = {
       role: "Group B Connector",
       borellaStopIndex: 4,
       segmentDistancesKm: [6.5, 2.5, 7.0, 3.0, 2.5, 7.5, 4.5],
-      baseArrivalRatePaxPerMin: [0.60, 0.35, 0.35, 0.45, 0.45, 0.30, 0.25, 0.0],
+      baseArrivalRatePaxPerMin: [0.32, 0.20, 0.20, 0.25, 0.20, 0.15, 0.10, 0.0],
       stops: ["Makumbura", "Apeksha Hospital", "Nawinna", "Narahenpita Junction", "Borella 02 (YMBA)", "Cambell Park", "Kelaniya University", "Kadawatha"]
     },
     CM03_KAD_to_MAK: {
@@ -81,7 +78,7 @@ window.SIM_CONFIG = {
       role: "Group A Feeder",
       borellaStopIndex: 3,
       segmentDistancesKm: [4.5, 7.5, 2.5, 3.0, 7.0, 2.5, 6.5],
-      baseArrivalRatePaxPerMin: [0.65, 0.45, 0.40, 0.45, 0.35, 0.25, 0.20, 0.0],
+      baseArrivalRatePaxPerMin: [0.28, 0.20, 0.20, 0.20, 0.15, 0.12, 0.10, 0.0],
       stops: ["Kadawatha", "Kelaniya University", "Cambell Park", "Borella 02 (YMBA)", "Narahenpita Junction", "Nawinna", "Apeksha Hospital", "Makumbura"]
     }
   },

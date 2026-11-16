@@ -3,101 +3,177 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Metro Transfer Simulator: Borella Hub Operations</title>
+  <title>Metro Transfer Simulator: Borella Interchange Control</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header>
-    <div>
-      <h1>Metro Transfer Simulator: Borella Interchange Control Center</h1>
+    <div class="header-title-block">
+      <h1>Metro Transfer Simulator // Borella Interchange Control</h1>
       <p>Stop-by-stop discrete-event simulation of Lanka Metro Transit routes CM01 and CM03 (Kadawatha - Pettah through-ticket).</p>
+      <div class="alpha-line" id="alphaReadout">CALIBRATING PER-LEG ALPHA...</div>
     </div>
     <div class="header-badges">
-      <div class="badge-pill" id="trafficBadge">CM01: Free | CM03: Free</div>
-      <div class="clock-badge" id="simClock">Day 1 | 07:30</div>
+      <div class="badge-pill"><span class="badge-dot" id="dotCm01"></span><span id="trafficBadgeCm01">CM01: FREE</span></div>
+      <div class="badge-pill"><span class="badge-dot" id="dotCm03"></span><span id="trafficBadgeCm03">CM03: FREE</span></div>
+      <div class="clock-badge" id="simClock">DAY 1 | 07:30</div>
     </div>
   </header>
 
   <div class="workspace">
     <aside class="panel" aria-label="Simulation Controls">
       <div class="control-group">
-        <div class="section-title">Quick Scenario Presets</div>
+        <div class="section-header">
+          <h2 class="section-title">01. Scenario Presets</h2>
+          <span class="section-hint">ONE-CLICK</span>
+        </div>
         <div class="preset-row">
-          <button type="button" class="preset-btn" data-preset="baseline">1. Baseline</button>
-          <button type="button" class="preset-btn active" data-preset="hold3">2. Hold 3m</button>
-          <button type="button" class="preset-btn" data-preset="realtime">3. RT + Shift</button>
+          <button type="button" class="preset-btn" data-preset="baseline">
+            <span class="p-name">01. BASELINE</span>
+            <span class="p-sub">none | h=0m</span>
+          </button>
+          <button type="button" class="preset-btn active" data-preset="hold3">
+            <span class="p-name">02. HOLD 3M</span>
+            <span class="p-sub">sched | h=3m</span>
+          </button>
+          <button type="button" class="preset-btn" data-preset="realtime">
+            <span class="p-name">03. RT + SHIFT</span>
+            <span class="p-sub">eta | -15m</span>
+          </button>
         </div>
       </div>
 
       <div class="control-group">
-        <div class="section-title">Dispatch &amp; Holding Policy</div>
-        <label for="policy">Borella holding rule</label>
-        <select id="policy">
+        <div class="section-header">
+          <h2 class="section-title">02. Dispatch &amp; Holding Policy</h2>
+          <span class="section-hint">BORELLA HUB</span>
+        </div>
+
+        <label class="field-label" for="policy">Borella holding rule</label>
+        <select id="policy" class="sr-only" aria-label="Borella holding rule">
+          <option value="none">No holding</option>
           <option value="schedule" selected>Schedule-based holding</option>
-          <option value="realtime">Real-time ETA holding (skip uncatchable)</option>
-          <option value="none">No holding (baseline)</option>
+          <option value="realtime">Real-time ETA holding</option>
         </select>
+        <div class="seg-group cols-3" role="group" aria-label="Holding policy selector">
+          <button type="button" class="seg-btn" data-policy="none">NONE</button>
+          <button type="button" class="seg-btn active" data-policy="schedule">SCHEDULE</button>
+          <button type="button" class="seg-btn" data-policy="realtime">REAL-TIME</button>
+        </div>
+        <div class="rule-box" id="policyRuleBox">Holds connecting bus up to T_sched + h while any protected feeder is still approaching Borella.</div>
 
-        <label for="holdMax">Max hold time h <span id="holdMaxVal"></span></label>
+        <label class="field-label" for="holdMax">
+          <span>Max hold time h</span>
+          <span class="field-value" id="holdMaxVal">3.0 min</span>
+        </label>
         <input id="holdMax" type="range" min="0" max="6" step="0.5" value="3.0">
+        <div class="slider-bounds"><span>0.0m (MIN)</span><span>6.0m (MAX)</span></div>
 
-        <label for="shiftRoute">Timetable shift route</label>
-        <select id="shiftRoute">
+        <label class="field-label" for="shiftRoute">Timetable shift route</label>
+        <select id="shiftRoute" class="sr-only" aria-label="Timetable shift route">
           <option value="CM03" selected>Shift CM03 (both directions)</option>
           <option value="CM01">Shift CM01 (both directions)</option>
         </select>
+        <div class="seg-group cols-2" role="group" aria-label="Route shift selector">
+          <button type="button" class="seg-btn active" data-shift-route="CM03">CM03 (KAD-MAK)</button>
+          <button type="button" class="seg-btn" data-shift-route="CM01">CM01 (FOR-MAK)</button>
+        </div>
 
-        <label for="shiftMin">Schedule shift Delta <span id="shiftMinVal"></span></label>
+        <label class="field-label" for="shiftMin">
+          <span>Schedule shift Delta</span>
+          <span class="field-value" id="shiftMinVal">0 min</span>
+        </label>
         <input id="shiftMin" type="range" min="-30" max="30" step="5" value="0">
+        <div class="slider-bounds"><span>-30m EARLIER</span><span>+30m LATER</span></div>
       </div>
 
       <div class="control-group">
-        <div class="section-title">Physical &amp; Traffic Parameters</div>
-        <label for="walkTime">Borella walk time w <span id="walkTimeVal"></span></label>
+        <div class="section-header">
+          <h2 class="section-title">03. Corridor &amp; Fleet Parameters</h2>
+          <span class="section-hint">PHYSICAL</span>
+        </div>
+
+        <label class="field-label" for="walkTime">
+          <span>Borella walk time w</span>
+          <span class="field-value" id="walkTimeVal">3.5 min</span>
+        </label>
         <input id="walkTime" type="range" min="1" max="6" step="0.5" value="3.5">
+        <div class="slider-bounds"><span>1.0m (MIN)</span><span>6.0m (MAX)</span></div>
 
-        <label for="capacityPax">Bus capacity C <span id="capacityPaxVal"></span></label>
+        <label class="field-label" for="capacityPax">
+          <span>Bus capacity C</span>
+          <span class="field-value" id="capacityPaxVal">80 pax</span>
+        </label>
         <input id="capacityPax" type="range" min="40" max="120" step="10" value="80">
+        <div class="slider-bounds"><span>40 PAX</span><span>120 PAX</span></div>
 
-        <label for="peakSpeed">Peak target car speed <span id="peakSpeedVal"></span></label>
+        <label class="field-label" for="peakSpeed">
+          <span>Peak target car speed</span>
+          <span class="field-value" id="peakSpeedVal">14 km/h</span>
+        </label>
         <input id="peakSpeed" type="range" min="8" max="22" step="1" value="14">
+        <div class="slider-bounds"><span>8 KM/H (SEVERE)</span><span>22 KM/H (LIGHT)</span></div>
       </div>
 
       <div class="control-group">
-        <div class="section-title">Execution &amp; Replications</div>
-        <label for="animSpeed">Playback speed <span id="animSpeedVal"></span></label>
+        <div class="section-header">
+          <h2 class="section-title">04. Monte Carlo Execution</h2>
+          <span class="section-hint">ENSEMBLE</span>
+        </div>
+
+        <label class="field-label" for="animSpeed">
+          <span>Playback speed</span>
+          <span class="field-value" id="animSpeedVal">2.5x</span>
+        </label>
         <input id="animSpeed" type="range" min="0.5" max="10" step="0.5" value="2.5">
+        <div class="slider-bounds"><span>0.5x</span><span>10.0x</span></div>
 
-        <label for="repTotal">Monte Carlo days R <span id="repTotalVal"></span></label>
+        <label class="field-label" for="repTotal">
+          <span>Monte Carlo days R</span>
+          <span class="field-value" id="repTotalVal">100 days</span>
+        </label>
         <input id="repTotal" type="range" min="20" max="500" step="20" value="100">
+        <div class="slider-bounds"><span>20 DAYS</span><span>500 DAYS</span></div>
 
-        <label for="seed">Random seed</label>
+        <label class="field-label" for="seed"><span>Random seed</span></label>
         <input id="seed" type="number" value="42" min="1" step="1">
 
         <div class="button-grid">
-          <button id="startBtn">Start</button>
-          <button id="resetBtn" class="secondary">Reset</button>
-          <button id="nextDayBtn" class="secondary">+1 Day</button>
-          <button id="batchRunBtn" class="secondary">Run All R</button>
+          <button type="button" id="startBtn" class="action-btn">Start</button>
+          <button type="button" id="batchRunBtn" class="action-btn secondary">Run All R</button>
+          <button type="button" id="nextDayBtn" class="action-btn secondary">+1 Day</button>
+          <button type="button" id="resetBtn" class="action-btn secondary">Reset</button>
         </div>
       </div>
 
       <details>
-        <summary>About / Formula Configuration</summary>
-        <p>All schedules, stop distances, dwell time coefficients, Markov speeds, and calibrated leg factors are stored in <code>docs/config.js</code>.</p>
+        <summary>About / How to Use &amp; Model Rules</summary>
+        <p>All schedules, stop distances, dwell coefficients, and Markov traffic speeds are defined in <code>docs/config.js</code>. Per-leg speed scaling factors (alpha) are calibrated dynamically in your browser via bisection on seed or parameter reset.</p>
         <ul>
+          <li><strong>Interactive inspection:</strong> Click any moving bus on the map, any row in the Connector table, or any item in the Transfer Log to jump directly to that Borella event.</li>
           <li><strong>Dwell formula:</strong> (12s + 2s * alight + 3s * board) / 60.</li>
-          <li><strong>Traffic:</strong> 3-state Markov chain calibrated via bisection to target peak/off-peak speeds.</li>
-          <li><strong>Objective J:</strong> 2.0 * transfer wait + 1.0 * on-board hold pax-min.</li>
+          <li><strong>Traffic DTMC:</strong> 3-state peak/off-peak Markov chain calibrated via stationary distribution bisection (peak 06:00-09:00 and 17:00-20:00).</li>
+          <li><strong>Objective J:</strong> 2.0 * transfer wait + 1.0 * on-board hold pax-min (60 min penalty if the last connector is missed).</li>
         </ul>
       </details>
     </aside>
 
     <section class="panel" aria-label="Visualisation and Live Telemetry">
       <div class="scrubber-bar">
-        <span>Time of day scrubber:</span>
-        <input id="timeScrubber" type="range" min="270" max="1350" step="1" value="450">
-        <span id="scrubberLabel">07:30</span>
+        <span class="scrubber-label-title">Day Clock Scrubber</span>
+        <div class="scrubber-slider-wrap">
+          <input id="timeScrubber" type="range" min="270" max="1350" step="1" value="450">
+          <span class="scrubber-time" id="scrubberLabel">07:30</span>
+        </div>
+        <div class="jump-group" aria-label="Quick time jumps">
+          <button type="button" class="time-jump-btn" data-jump-min="480">08:00 AM PEAK</button>
+          <button type="button" class="time-jump-btn" data-jump-min="556">09:16 TIGHT B</button>
+          <button type="button" class="time-jump-btn" data-jump-min="886">14:46 TIGHT A</button>
+          <button type="button" class="time-jump-btn" data-jump-min="1066">17:46 PM PEAK</button>
+        </div>
       </div>
 
       <div class="legend-row">
@@ -109,20 +185,53 @@
         <span><span class="swatch" style="background:var(--color-warning)"></span>Connector Holding</span>
       </div>
 
-      <canvas id="mapCanvas" width="940" height="580" aria-label="Colombo corridor transit map and convergence chart"></canvas>
+      <canvas id="mapCanvas" width="940" height="590" aria-label="Colombo corridor transit map and convergence chart"></canvas>
 
       <div class="stats-grid">
-        <div class="stat-card"><div class="k">Transfers Made (Today)</div><div class="v ok" id="outTodayMade">0</div></div>
-        <div class="stat-card"><div class="k">Transfers Missed (Today)</div><div class="v bad" id="outTodayMissed">0</div></div>
-        <div class="stat-card"><div class="k">Active on Network</div><div class="v" id="outActive">0 buses / 0 pax</div></div>
-        <div class="stat-card"><div class="k">Mean Missed (95% CI)</div><div class="v" id="outMissAll">-</div></div>
-        <div class="stat-card"><div class="k">Group A vs Group B Miss</div><div class="v" id="outMissAB">-</div></div>
-        <div class="stat-card"><div class="k">Objective J (pax-min)</div><div class="v" id="outObjJ">-</div></div>
+        <div class="stat-card">
+          <div class="k">Transfers Made (Today)</div>
+          <div class="v ok" id="outTodayMade">0</div>
+          <div class="kpi-bar"><div class="kpi-bar-fill ok" id="barTodayMade"></div></div>
+          <div class="kpi-sub" id="subTodayMade">0% of settled today</div>
+        </div>
+        <div class="stat-card">
+          <div class="k">Transfers Missed (Today)</div>
+          <div class="v bad" id="outTodayMissed">0</div>
+          <div class="kpi-bar"><div class="kpi-bar-fill bad" id="barTodayMissed"></div></div>
+          <div class="kpi-sub" id="subTodayMissed">Timing or capacity spill</div>
+        </div>
+        <div class="stat-card">
+          <div class="k">Active on Network</div>
+          <div class="v" id="outActive">0 buses / 0 pax</div>
+          <div class="kpi-bar"><div class="kpi-bar-fill" id="barActive"></div></div>
+          <div class="kpi-sub" id="subActive">0 pax walking at Borella</div>
+        </div>
+        <div class="stat-card">
+          <div class="k">Mean Missed (95% CI)</div>
+          <div class="v" id="outMissAll">-</div>
+          <div class="kpi-bar"><div class="kpi-bar-fill warn" id="barMissAll"></div></div>
+          <div class="kpi-sub" id="subMissAll">Across completed days</div>
+        </div>
+        <div class="stat-card">
+          <div class="k">Group A vs Group B Miss</div>
+          <div class="v" id="outMissAB">-</div>
+          <div class="kpi-bar"><div class="kpi-bar-fill" id="barMissAB"></div></div>
+          <div class="kpi-sub" id="subMissAB">A: KAD-FOR | B: FOR-KAD</div>
+        </div>
+        <div class="stat-card">
+          <div class="k">Objective J (pax-min)</div>
+          <div class="v" id="outObjJ">-</div>
+          <div class="kpi-bar"><div class="kpi-bar-fill" id="barObjJ"></div></div>
+          <div class="kpi-sub" id="subObjJ">2x wait + 1x on-board hold</div>
+        </div>
       </div>
 
       <div class="bottom-panels">
         <div class="table-box">
-          <div class="section-title">Borella Connector Departures &amp; Holds (Current Day)</div>
+          <div class="section-header">
+            <h2 class="section-title">Borella Connector Departures &amp; Holds</h2>
+            <span class="section-hint">CLICK ROW TO INSPECT</span>
+          </div>
           <table>
             <thead>
               <tr>
@@ -139,7 +248,10 @@
         </div>
 
         <div class="log-box">
-          <div class="section-title">Borella Feeder Transfer Log (Current Day)</div>
+          <div class="section-header">
+            <h2 class="section-title">Borella Feeder Transfer Log</h2>
+            <span class="section-hint">CLICK EVENT TO JUMP</span>
+          </div>
           <ul class="log-list" id="eventLogList"></ul>
         </div>
       </div>

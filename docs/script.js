@@ -4,6 +4,11 @@
   const CFG = window.SIM_CONFIG;
   const $ = (id) => document.getElementById(id);
 
+  function readCssVar(name, fallback) {
+    const val = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return val || fallback;
+  }
+
   function createSeededRng(seedInt) {
     let a = seedInt >>> 0;
     return function () {
@@ -99,6 +104,12 @@
     }
   }
 
+  function sampleStandardNormalBoxMuller(rng) {
+    const u1 = Math.max(1e-12, 1.0 - rng());
+    const u2 = rng();
+    return Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+  }
+
   function generateDailyTrafficGrid(rng, matrixOffpeak, matrixPeak) {
     const { dayStartMin, dayEndMin, trafficStepMin } = CFG.timeWindow;
     const nSlots = Math.floor((dayEndMin - dayStartMin) / trafficStepMin) + 20;
@@ -148,10 +159,7 @@
     return rawTrips.map((row) => {
       const mins = row.times.map((t) => parseHhmmToMinutes(t) + shiftMin);
       let prevMin, nextMin;
-      if (legKey === "CM01_MAK_to_FOR") {
-        prevMin = mins[2];
-        nextMin = mins[3];
-      } else if (legKey === "CM01_FOR_to_MAK") {
+      if (legKey === "CM01_MAK_to_FOR" || legKey === "CM01_FOR_to_MAK") {
         prevMin = mins[2];
         nextMin = mins[3];
       } else if (legKey === "CM03_MAK_to_KAD") {
@@ -170,14 +178,15 @@
     });
   }
 
-  function generateStopArrivals(legCfg, rng) {
+  function generateStopArrivals(legCfg, firstOriginMin, rng) {
     const nStops = legCfg.stops.length;
     const queues = Array.from({ length: nStops }, () => []);
-    const { dayStartMin, dayEndMin } = CFG.timeWindow;
+    const { dayStartMin, dayEndMin, preDepartureAccumMin } = CFG.timeWindow;
+    const startWindowMin = Math.max(dayStartMin, firstOriginMin - (preDepartureAccumMin || 30));
     for (let s = 0; s < nStops - 1; s++) {
       const baseRate = legCfg.baseArrivalRatePaxPerMin[s];
       if (baseRate <= 0) continue;
-      let t = dayStartMin;
+      let t = startWindowMin;
       while (t < dayEndMin) {
         const rate = baseRate * (isPeakTime(t) ? 1.35 : 0.85);
         t += sampleExponentialInterarrival(rate, rng);
@@ -191,13 +200,14 @@
     return queues;
   }
 
-  function simulateLegDay(legKey, shiftMin, trafficStates, rng, capacityPax) {
+  function simulateLegDay(legKey, shiftMin, trafficStates, rng, capacityPax, alphaOverride) {
     const legCfg = CFG.routes[legKey];
     const schedTrips = buildScheduledLegTrips(legKey, shiftMin);
-    const queues = generateStopArrivals(legCfg, rng);
+    const firstOriginMin = schedTrips[0].originSchedMin;
+    const queues = generateStopArrivals(legCfg, firstOriginMin, rng);
     const cursors = new Array(legCfg.stops.length).fill(0);
-    const alpha = CFG.trafficModel.legSpeedAlpha[legKey];
-    const { doorTimeSec, alightTimeSec, boardTimeSec } = CFG.busParameters;
+    const alpha = alphaOverride !== undefined ? alphaOverride : (state.legSpeedAlphas[legKey] || 0.9);
+    const { doorTimeSec, alightTimeSec, boardTimeSec, etaNoiseSdMin } = CFG.busParameters;
     const borellaIdx = legCfg.borellaStopIndex;
 
     return schedTrips.map((trip) => {
@@ -255,28 +265,65 @@
       return {
         legKey,
         routeCode: legCfg.code,
+        role: legCfg.role,
+        originName: legCfg.stops[0],
+        destName: legCfg.stops[legCfg.stops.length - 1],
         tripId: trip.tripId,
         originSchedMin: trip.originSchedMin,
         borellaSchedMin: trip.borellaSchedMin,
         borellaArrMin,
+        borellaDwellMin,
         borellaBaseDepMin: Math.max(trip.borellaSchedMin, borellaArrMin + borellaDwellMin),
         borellaActualDepMin: Math.max(trip.borellaSchedMin, borellaArrMin + borellaDwellMin),
         borellaHoldMin: 0,
         borellaOnboardPax,
         leftBehindTotal,
         transferPaxCount: samplePoissonKnuth(CFG.busParameters.transferMeanPax, rng),
+        etaErrMin: (etaNoiseSdMin || 1.0) * sampleStandardNormalBoxMuller(rng),
         targetConnectorId: null,
         stopTimeline
       };
     });
   }
 
-  function mapTargetConnectors(feeders, connectors, walkTimeMin) {
+  function calibrateLegAlphas(seed, peakSpeedKmph, capacityPax) {
+    const pOff = calibrateJamParamBisection(CFG.trafficModel.targetSpeedOffpeakKmph);
+    const pPeak = calibrateJamParamBisection(peakSpeedKmph);
+    const matOff = buildParametricTransitionMatrix(pOff);
+    const matPeak = buildParametricTransitionMatrix(pPeak);
+    const nCalDays = 12;
+    const alphas = {};
+
+    for (const legKey of Object.keys(CFG.routes)) {
+      let low = 0.25;
+      let high = 2.50;
+      for (let iter = 0; iter < 16; iter++) {
+        const mid = 0.5 * (low + high);
+        let delaySum = 0.0;
+        let tripCount = 0;
+        for (let d = 0; d < nCalDays; d++) {
+          const calRng = createSeededRng(seed + 1009 * (d + 1));
+          const tGrid = generateDailyTrafficGrid(calRng, matOff, matPeak);
+          const trips = simulateLegDay(legKey, 0, tGrid, calRng, capacityPax, mid);
+          for (const tr of trips) {
+            delaySum += tr.borellaArrMin - tr.borellaSchedMin;
+            tripCount++;
+          }
+        }
+        const meanErr = delaySum / Math.max(1, tripCount);
+        if (meanErr > 0.0) low = mid;
+        else high = mid;
+      }
+      alphas[legKey] = 0.5 * (low + high);
+    }
+    return alphas;
+  }
+
+  function mapTargetConnectors(feeders, connectors) {
     const sortedConn = [...connectors].sort((a, b) => a.borellaSchedMin - b.borellaSchedMin);
     const map = new Map();
     for (const f of feeders) {
-      const readySched = f.borellaSchedMin + walkTimeMin;
-      const target = sortedConn.find((c) => c.borellaSchedMin >= readySched);
+      const target = sortedConn.find((c) => c.borellaSchedMin >= f.borellaSchedMin - 1e-9);
       f.targetConnectorId = target ? target.tripId : null;
       map.set(f.tripId, f.targetConnectorId);
     }
@@ -286,7 +333,8 @@
   function resolveDirectionTransfers(groupLabel, feeders, connectors, params) {
     const { policy, holdMaxMin, walkTimeMin, capacityPax } = params;
     const { waitWeight, holdWeight } = CFG.objectiveWeights;
-    mapTargetConnectors(feeders, connectors, walkTimeMin);
+    const missedPenaltyMin = CFG.busParameters.missedLastConnectorPenaltyMin || 60.0;
+    mapTargetConnectors(feeders, connectors);
 
     const connById = new Map(connectors.map((c) => [c.tripId, c]));
     const protectedByConn = new Map(connectors.map((c) => [c.tripId, []]));
@@ -306,13 +354,12 @@
           let latestCatchableReady = c.borellaBaseDepMin;
           for (const f of protFeeders) {
             const readyActual = f.borellaArrMin + walkTimeMin;
-            if (readyActual > c.borellaBaseDepMin) {
-              if (policy === "realtime" && readyActual > deadline) {
-                continue;
-              }
-              if (readyActual > latestCatchableReady) {
-                latestCatchableReady = readyActual;
-              }
+            const etaReady = readyActual + (f.etaErrMin || 0.0);
+            if (policy === "realtime" && etaReady > deadline + 1e-9) {
+              continue;
+            }
+            if (readyActual > latestCatchableReady) {
+              latestCatchableReady = readyActual;
             }
           }
           depMin = Math.min(deadline, Math.max(c.borellaBaseDepMin, latestCatchableReady));
@@ -381,7 +428,7 @@
             fMissCap++;
           }
         } else {
-          totalWaitMin += 45.0;
+          totalWaitMin += missedPenaltyMin;
           if (!timingOk) {
             missedTiming++;
             fMissTiming++;
@@ -479,8 +526,13 @@
     running: false,
     animId: null,
     dayIndex: 1,
-    simClockMin: CFG.timeWindow.dayStartMin,
+    simClockMin: 450,
+    legSpeedAlphas: {},
+    lastCalKey: "",
     currentDay: null,
+    hoveredBusId: null,
+    selectedBusId: null,
+    renderedBuses: [],
     missAllHistory: [],
     missAHistory: [],
     missBHistory: [],
@@ -492,6 +544,24 @@
 
   const canvas = $("mapCanvas");
   const ctx = canvas.getContext("2d");
+
+  function updateSliderFill(el) {
+    if (!el) return;
+    const min = parseFloat(el.min);
+    const max = parseFloat(el.max);
+    const val = parseFloat(el.value);
+    const pct = max > min ? ((val - min) / (max - min)) * 100.0 : 0.0;
+    el.style.setProperty("--slider-pct", `${Math.max(0, Math.min(100, pct)).toFixed(1)}%`);
+  }
+
+  function syncSegmentedButtons(policy, shiftRoute) {
+    document.querySelectorAll("[data-policy]").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.policy === policy);
+    });
+    document.querySelectorAll("[data-shift-route]").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.shiftRoute === shiftRoute);
+    });
+  }
 
   function readUIParams() {
     return {
@@ -517,6 +587,26 @@
     $("peakSpeedVal").textContent = `${p.peakSpeedKmph.toFixed(0)} km/h`;
     $("animSpeedVal").textContent = `${p.animSpeed.toFixed(1)}x`;
     $("repTotalVal").textContent = `${p.repTotal} days`;
+
+    const ruleDescriptions = {
+      none: "Connectors depart strictly at max(T_sched, T_arr + dwell) with zero feeder holding.",
+      schedule: `Holds connectors up to T_sched + ${p.holdMaxMin.toFixed(1)}m whenever any protected feeder is still approaching.`,
+      realtime: `Holds up to T_sched + ${p.holdMaxMin.toFixed(1)}m only if noisy ETA confirms the feeder is catchable.`
+    };
+    $("policyRuleBox").textContent = ruleDescriptions[p.policy] || ruleDescriptions.schedule;
+    syncSegmentedButtons(p.policy, p.shiftRoute);
+
+    ["holdMax", "shiftMin", "walkTime", "capacityPax", "peakSpeed", "animSpeed", "repTotal", "timeScrubber"].forEach((id) => {
+      updateSliderFill($(id));
+    });
+  }
+
+  function updateAlphaReadout() {
+    const a = state.legSpeedAlphas;
+    if (!a.CM01_MAK_to_FOR) return;
+    $("alphaReadout").textContent =
+      `CALIBRATED ALPHA // CM01 MAK-FOR ${a.CM01_MAK_to_FOR.toFixed(3)} | CM01 FOR-MAK ${a.CM01_FOR_to_MAK.toFixed(3)} | ` +
+      `CM03 MAK-KAD ${a.CM03_MAK_to_KAD.toFixed(3)} | CM03 KAD-MAK ${a.CM03_KAD_to_MAK.toFixed(3)}`;
   }
 
   function getBusPositionAtTime(bus, tMin) {
@@ -552,42 +642,76 @@
           angleRad: Math.atan2(p2.y - p1.y, p2.x - p1.x),
           onboardPax: stop.onboardPax,
           status: "CRUISING",
-          stopName: nextStop.stopName
+          stopName: `${stop.stopName} -> ${nextStop.stopName}`
         };
       }
     }
     return null;
   }
 
-  function drawSmoothMapBackground() {
+  function drawMapBackground(tNow) {
+    const mapH = 420;
     ctx.save();
-    ctx.fillStyle = "#f1f5f9";
-    ctx.fillRect(0, 0, canvas.width, 420);
+    ctx.fillStyle = "#09090b";
+    ctx.fillRect(0, 0, canvas.width, mapH);
 
-    ctx.fillStyle = "#dbeafe";
+    ctx.strokeStyle = "#151519";
+    ctx.lineWidth = 1;
+    for (let gx = 0; gx <= canvas.width; gx += 32) {
+      ctx.beginPath();
+      ctx.moveTo(gx, 0);
+      ctx.lineTo(gx, mapH);
+      ctx.stroke();
+    }
+    for (let gy = 0; gy <= mapH; gy += 32) {
+      ctx.beginPath();
+      ctx.moveTo(0, gy);
+      ctx.lineTo(canvas.width, gy);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = "#0c1420";
+    ctx.strokeStyle = "#1e293b";
+    ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(0, 0);
-    ctx.lineTo(118, 0);
-    ctx.quadraticCurveTo(84, 130, 58, 215);
-    ctx.quadraticCurveTo(42, 315, 28, 420);
+    ctx.lineTo(106, 0);
+    ctx.lineTo(74, 145);
+    ctx.lineTo(54, 240);
+    ctx.lineTo(30, 420);
     ctx.lineTo(0, 420);
     ctx.closePath();
     ctx.fill();
+    ctx.stroke();
 
-    ctx.fillStyle = "#bfdbfe";
-    ctx.beginPath();
-    ctx.ellipse(545, 272, 34, 14, -0.18, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.fillStyle = "#0f172a";
+    ctx.fillRect(512, 260, 64, 22);
+    ctx.strokeRect(512, 260, 64, 22);
 
-    ctx.fillStyle = "#3b82f6";
-    ctx.font = "600 10px system-ui, sans-serif";
-    ctx.fillText("Indian Ocean", 10, 235);
-    ctx.fillText("Diyawanna Lake", 510, 298);
+    ctx.fillStyle = "#475569";
+    ctx.font = "600 9.5px 'IBM Plex Mono', monospace";
+    ctx.fillText("INDIAN OCEAN", 8, 225);
+    ctx.fillText("DIYAWANNA", 516, 274);
+
+    const peakActive = isPeakTime(tNow);
+    ctx.fillStyle = peakActive ? "rgba(239, 68, 68, 0.14)" : "rgba(16, 185, 129, 0.12)";
+    ctx.strokeStyle = peakActive ? "#ef4444" : "#10b981";
+    ctx.lineWidth = 1;
+    ctx.fillRect(366, 14, 210, 24);
+    ctx.strokeRect(366, 14, 210, 24);
+    ctx.fillStyle = peakActive ? "#fca5a5" : "#6ee7b7";
+    ctx.font = "700 10px 'IBM Plex Mono', monospace";
+    ctx.fillText(peakActive ? "REGIME: PEAK CONGESTION" : "REGIME: OFF-PEAK FLOW", 376, 30);
+
     ctx.restore();
   }
 
   function drawCorridorPolyline(stopNames, routeColor, trafficState) {
-    const stateColors = ["#22c55e", "#f59e0b", "#ef4444"];
+    const stateColors = [
+      readCssVar("--state-free", "#10b981"),
+      readCssVar("--state-slow", "#f59e0b"),
+      readCssVar("--state-jammed", "#ef4444")
+    ];
     const tracePath = () => {
       ctx.beginPath();
       stopNames.forEach((name, idx) => {
@@ -598,137 +722,201 @@
     };
 
     ctx.save();
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
+    ctx.lineCap = "butt";
+    ctx.lineJoin = "miter";
 
     ctx.strokeStyle = stateColors[trafficState];
-    ctx.lineWidth = 22;
-    ctx.globalAlpha = 0.28;
+    ctx.lineWidth = 18;
+    ctx.globalAlpha = 0.2;
     tracePath();
     ctx.stroke();
     ctx.globalAlpha = 1.0;
 
     ctx.strokeStyle = routeColor;
-    ctx.lineWidth = 15;
+    ctx.lineWidth = 10;
     tracePath();
     ctx.stroke();
 
-    ctx.strokeStyle = "#334155";
-    ctx.lineWidth = 11;
+    ctx.strokeStyle = "#18181b";
+    ctx.lineWidth = 6;
     tracePath();
     ctx.stroke();
 
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.78)";
-    ctx.lineWidth = 1.4;
-    ctx.setLineDash([7, 7]);
+    ctx.strokeStyle = "rgba(250, 250, 250, 0.5)";
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([6, 6]);
     tracePath();
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.restore();
   }
 
-  function drawTopDownBus(pos, isCm01, isHold, capacityPax) {
-    const laneOffset = 5.5;
+  function drawTopDownBus(bus, pos, isCm01, isHold, isSelected, capacityPax) {
+    const laneOffset = 6.0;
     const nx = -Math.sin(pos.angleRad) * laneOffset;
     const ny = Math.cos(pos.angleRad) * laneOffset;
     const bx = pos.x + nx;
     const by = pos.y + ny;
 
+    state.renderedBuses.push({ tripId: bus.tripId, bx, by, bus, pos });
+
     ctx.save();
     ctx.translate(bx, by);
     ctx.rotate(pos.angleRad);
 
-    ctx.shadowColor = "rgba(15, 23, 42, 0.25)";
-    ctx.shadowBlur = 4;
-    ctx.fillStyle = isHold ? "#f59e0b" : isCm01 ? "#0284c7" : "#7c3aed";
-    ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = 1.4;
-    ctx.beginPath();
-    ctx.roundRect(-12, -5.5, 24, 11, 3.5);
-    ctx.fill();
-    ctx.shadowBlur = 0;
-    ctx.stroke();
+    if (isSelected) {
+      ctx.strokeStyle = "#fafafa";
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(-15, -8.5, 30, 17);
+    }
 
-    ctx.fillStyle = "#0f172a";
-    ctx.beginPath();
-    ctx.roundRect(5.5, -3.8, 4, 7.6, 1.2);
-    ctx.fill();
+    ctx.fillStyle = isHold
+      ? readCssVar("--color-warning", "#eab308")
+      : isCm01
+        ? readCssVar("--route-cm01", "#38bdf8")
+        : readCssVar("--route-cm03", "#a855f7");
+    ctx.strokeStyle = "#09090b";
+    ctx.lineWidth = 1.2;
+    ctx.fillRect(-12, -5.5, 24, 11);
+    ctx.strokeRect(-12, -5.5, 24, 11);
+
+    ctx.fillStyle = "#09090b";
+    ctx.fillRect(6, -3.5, 4, 7);
     ctx.restore();
 
     const capRatio = Math.min(1, pos.onboardPax / Math.max(1, capacityPax));
-    const fillCol = capRatio >= 0.98 ? "#dc2626" : capRatio >= 0.7 ? "#d97706" : "#16a34a";
+    const fillCol = capRatio >= 0.98 ? "#f43f5e" : capRatio >= 0.7 ? "#eab308" : "#22c55e";
 
     ctx.save();
-    ctx.fillStyle = "rgba(255, 255, 255, 0.94)";
-    ctx.strokeStyle = isHold ? "#d97706" : "#cbd5e1";
+    ctx.fillStyle = "#121214";
+    ctx.strokeStyle = isSelected ? "#fafafa" : isHold ? "#eab308" : "#3f3f46";
     ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.roundRect(bx - 12, by - 21, 24, 11, 4);
-    ctx.fill();
-    ctx.stroke();
+    ctx.fillRect(bx - 13, by - 22, 26, 12);
+    ctx.strokeRect(bx - 13, by - 22, 26, 12);
 
     ctx.fillStyle = fillCol;
-    ctx.fillRect(bx - 9, by - 12.2, 18 * capRatio, 1.8);
+    ctx.fillRect(bx - 10, by - 12.5, 20 * capRatio, 2);
 
-    ctx.fillStyle = "#0f172a";
-    ctx.font = "700 8px system-ui, sans-serif";
-    ctx.fillText(`${pos.onboardPax}`, bx - 5.5, by - 13);
+    ctx.fillStyle = "#fafafa";
+    ctx.font = "700 8px 'IBM Plex Mono', monospace";
+    ctx.fillText(`${pos.onboardPax}`, bx - 6, by - 14);
 
     if (isHold) {
-      ctx.fillStyle = "#b45309";
-      ctx.font = "700 9px system-ui, sans-serif";
-      ctx.fillText("HOLD", bx - 12, by - 24);
+      ctx.fillStyle = "#eab308";
+      ctx.font = "700 9px 'IBM Plex Mono', monospace";
+      ctx.fillText("HOLD", bx - 12, by - 25);
     }
     ctx.restore();
   }
 
+  function drawInspectorOverlay(day, tNow, params) {
+    const ix = 16;
+    const iy = 14;
+    const iw = 264;
+    const ih = 112;
+
+    ctx.save();
+    ctx.fillStyle = "rgba(18, 18, 20, 0.96)";
+    ctx.strokeStyle = "#27272a";
+    ctx.lineWidth = 1;
+    ctx.fillRect(ix, iy, iw, ih);
+    ctx.strokeRect(ix, iy, iw, ih);
+
+    let targetBus = null;
+    let isPinned = false;
+    const activeId = state.hoveredBusId || state.selectedBusId;
+    if (day && activeId) {
+      targetBus = day.buses.find((b) => b.tripId === activeId) || null;
+      isPinned = Boolean(targetBus);
+    }
+    if (!targetBus && day) {
+      const conns = day.buses
+        .filter((b) => b.legKey === "CM01_MAK_to_FOR" || b.legKey === "CM03_MAK_to_KAD")
+        .sort((a, b) => a.borellaActualDepMin - b.borellaActualDepMin);
+      targetBus = conns.find((c) => c.borellaActualDepMin >= tNow - 5) || conns[0] || null;
+    }
+
+    ctx.fillStyle = "#fafafa";
+    ctx.font = "700 10px 'Space Grotesk', sans-serif";
+    ctx.fillText(isPinned ? "TRIP INSPECTOR [PINNED]" : "NEXT BORELLA CONNECTOR", ix + 10, iy + 18);
+
+    if (!targetBus) {
+      ctx.fillStyle = "#71717a";
+      ctx.font = "500 10px 'IBM Plex Mono', monospace";
+      ctx.fillText("No active trip selected", ix + 10, iy + 48);
+      ctx.restore();
+      return;
+    }
+
+    const pos = getBusPositionAtTime(targetBus, tNow);
+    const delayMin = targetBus.borellaArrMin - targetBus.borellaSchedMin;
+    const delaySign = delayMin >= 0 ? "+" : "";
+    const routeCol = targetBus.routeCode === "CM01" ? "#38bdf8" : "#a855f7";
+
+    ctx.fillStyle = routeCol;
+    ctx.fillRect(ix + 10, iy + 27, 4, 30);
+
+    ctx.fillStyle = "#fafafa";
+    ctx.font = "700 11px 'IBM Plex Mono', monospace";
+    ctx.fillText(`${targetBus.tripId} (${targetBus.role})`, ix + 20, iy + 38);
+
+    ctx.fillStyle = "#a1a1aa";
+    ctx.font = "500 9.5px 'IBM Plex Mono', monospace";
+    const statusLine = pos ? `${pos.status}: ${pos.stopName}` : `${targetBus.originName} -> ${targetBus.destName}`;
+    ctx.fillText(statusLine.slice(0, 36), ix + 20, iy + 54);
+
+    ctx.strokeStyle = "#27272a";
+    ctx.beginPath();
+    ctx.moveTo(ix + 10, iy + 65);
+    ctx.lineTo(ix + iw - 10, iy + 65);
+    ctx.stroke();
+
+    ctx.fillStyle = "#d4d4d8";
+    ctx.font = "600 9.5px 'IBM Plex Mono', monospace";
+    ctx.fillText(`BORELLA: ${formatMinutesToHhmm(targetBus.borellaArrMin)} (${delaySign}${delayMin.toFixed(1)}m)`, ix + 10, iy + 82);
+    ctx.fillText(`HOLD: ${targetBus.borellaHoldMin.toFixed(1)}m | LOAD: ${targetBus.borellaOnboardPax}/${params.capacityPax}`, ix + 10, iy + 99);
+
+    ctx.restore();
+  }
+
   function drawBorellaInset(day, tNow, params, activeHoldingBus) {
-    const bx = 18;
+    const bx = 16;
     const by = 292;
-    const bw = 248;
+    const bw = 264;
     const bh = 112;
 
     ctx.save();
-    ctx.shadowColor = "rgba(15, 23, 42, 0.12)";
-    ctx.shadowBlur = 12;
-    ctx.fillStyle = "rgba(255, 255, 255, 0.96)";
-    ctx.strokeStyle = "#cbd5e1";
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.roundRect(bx, by, bw, bh, 8);
-    ctx.fill();
-    ctx.shadowBlur = 0;
-    ctx.stroke();
+    ctx.fillStyle = "rgba(18, 18, 20, 0.96)";
+    ctx.strokeStyle = "#27272a";
+    ctx.lineWidth = 1;
+    ctx.fillRect(bx, by, bw, bh);
+    ctx.strokeRect(bx, by, bw, bh);
 
-    ctx.fillStyle = "#0f172a";
-    ctx.font = "700 11px system-ui, sans-serif";
-    ctx.fillText("Borella Interchange Zoom", bx + 12, by + 19);
+    ctx.fillStyle = "#fafafa";
+    ctx.font = "700 10px 'Space Grotesk', sans-serif";
+    ctx.fillText("BORELLA INTERCHANGE ZOOM", bx + 10, by + 18);
 
-    const stopYmba = { x: bx + 52, y: by + 45 };
-    const stopSinger = { x: bx + 196, y: by + 45 };
+    const stopYmba = { x: bx + 54, y: by + 44 };
+    const stopSinger = { x: bx + 210, y: by + 44 };
 
-    ctx.strokeStyle = "#64748b";
-    ctx.setLineDash([3, 3]);
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#52525b";
+    ctx.setLineDash([4, 3]);
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(stopYmba.x, stopYmba.y);
     ctx.lineTo(stopSinger.x, stopSinger.y);
     ctx.stroke();
     ctx.setLineDash([]);
 
-    ctx.fillStyle = "#7c3aed";
-    ctx.beginPath();
-    ctx.arc(stopYmba.x, stopYmba.y, 7, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#0284c7";
-    ctx.beginPath();
-    ctx.arc(stopSinger.x, stopSinger.y, 7, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.fillStyle = "#a855f7";
+    ctx.fillRect(stopYmba.x - 6, stopYmba.y - 6, 12, 12);
+    ctx.fillStyle = "#38bdf8";
+    ctx.fillRect(stopSinger.x - 6, stopSinger.y - 6, 12, 12);
 
-    ctx.fillStyle = "#475569";
-    ctx.font = "600 10px system-ui, sans-serif";
-    ctx.fillText("YMBA (CM03)", bx + 18, by + 65);
-    ctx.fillText("Singer (CM01)", bx + 162, by + 65);
+    ctx.fillStyle = "#a1a1aa";
+    ctx.font = "600 9.5px 'IBM Plex Mono', monospace";
+    ctx.fillText("YMBA (CM03)", bx + 18, by + 64);
+    ctx.fillText("SINGER (CM01)", bx + 172, by + 64);
 
     if (day) {
       for (const ev of day.transferEvents) {
@@ -737,41 +925,31 @@
           const x = ev.fromRoute === "CM03"
             ? stopYmba.x + (stopSinger.x - stopYmba.x) * frac
             : stopSinger.x + (stopYmba.x - stopSinger.x) * frac;
-          ctx.fillStyle = ev.madeCount > 0 ? "#16a34a" : "#dc2626";
-          ctx.beginPath();
-          ctx.arc(x, stopYmba.y, 4.5, 0, Math.PI * 2);
-          ctx.fill();
+          ctx.fillStyle = ev.madeCount > 0 ? "#22c55e" : "#f43f5e";
+          ctx.fillRect(x - 4, stopYmba.y - 4, 8, 8);
         }
       }
     }
 
-    const barX = bx + 12;
+    const barX = bx + 10;
     const barY = by + 79;
-    const barW = bw - 24;
-    ctx.fillStyle = "#e2e8f0";
-    ctx.beginPath();
-    ctx.roundRect(barX, barY, barW, 20, 4);
-    ctx.fill();
+    const barW = bw - 20;
+    ctx.fillStyle = "#27272a";
+    ctx.fillRect(barX, barY, barW, 20);
 
     if (activeHoldingBus) {
       const elapsed = Math.max(0, tNow - activeHoldingBus.borellaBaseDepMin);
       const maxH = Math.max(0.5, params.holdMaxMin);
       const fillFrac = Math.min(1, elapsed / maxH);
-      ctx.fillStyle = "#d97706";
-      ctx.beginPath();
-      ctx.roundRect(barX, barY, barW * fillFrac, 20, 4);
-      ctx.fill();
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "700 10px system-ui, sans-serif";
-      ctx.fillText(
-        `HOLDING ${activeHoldingBus.tripId}: ${elapsed.toFixed(1)} / ${maxH.toFixed(1)}m`,
-        barX + 8,
-        barY + 13
-      );
+      ctx.fillStyle = "#eab308";
+      ctx.fillRect(barX, barY, barW * fillFrac, 20);
+      ctx.fillStyle = "#09090b";
+      ctx.font = "700 9.5px 'IBM Plex Mono', monospace";
+      ctx.fillText(`HOLDING ${activeHoldingBus.tripId}: ${elapsed.toFixed(1)}/${maxH.toFixed(1)}m`, barX + 8, barY + 13);
     } else {
-      ctx.fillStyle = "#475569";
-      ctx.font = "600 10px system-ui, sans-serif";
-      ctx.fillText(`Walk time: ${params.walkTimeMin.toFixed(1)} min | No active hold`, barX + 8, barY + 13);
+      ctx.fillStyle = "#d4d4d8";
+      ctx.font = "600 9.5px 'IBM Plex Mono', monospace";
+      ctx.fillText(`WALK: ${params.walkTimeMin.toFixed(1)}m | NO ACTIVE HOLD`, barX + 8, barY + 13);
     }
     ctx.restore();
   }
@@ -782,21 +960,23 @@
     const mapH = 420;
     const params = readUIParams();
 
-    drawSmoothMapBackground();
-
+    state.renderedBuses = [];
     const day = state.currentDay;
     const tNow = state.simClockMin;
+
+    drawMapBackground(tNow);
+
     const st01 = day ? getTrafficStateAt(day.traffic.CM01_MAK_to_FOR, tNow) : 0;
     const st03 = day ? getTrafficStateAt(day.traffic.CM03_MAK_to_KAD, tNow) : 0;
 
-    drawCorridorPolyline(CFG.routes.CM03_MAK_to_KAD.stops, "#7c3aed", st03);
-    drawCorridorPolyline(CFG.routes.CM01_FOR_to_MAK.stops, "#0284c7", st01);
+    drawCorridorPolyline(CFG.routes.CM03_MAK_to_KAD.stops, readCssVar("--route-cm03", "#a855f7"), st03);
+    drawCorridorPolyline(CFG.routes.CM01_FOR_to_MAK.stops, readCssVar("--route-cm01", "#38bdf8"), st01);
 
     const bSinger = CFG.mapCoordinates["Borella (Singer Mega)"];
     const bYmba = CFG.mapCoordinates["Borella 02 (YMBA)"];
-    ctx.strokeStyle = "#f59e0b";
+    ctx.strokeStyle = "#eab308";
     ctx.setLineDash([4, 3]);
-    ctx.lineWidth = 2.5;
+    ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(bYmba.x, bYmba.y);
     ctx.lineTo(bSinger.x, bSinger.y);
@@ -804,16 +984,15 @@
     ctx.setLineDash([]);
 
     for (const [name, pt] of Object.entries(CFG.mapCoordinates)) {
-      ctx.fillStyle = pt.isBorella ? "#fef3c7" : "#ffffff";
-      ctx.strokeStyle = pt.isBorella ? "#d97706" : "#475569";
-      ctx.lineWidth = pt.isBorella ? 3 : 2;
-      ctx.beginPath();
-      ctx.arc(pt.x, pt.y, pt.isBorella ? 7 : 4.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
+      const sz = pt.isBorella ? 12 : 8;
+      ctx.fillStyle = pt.isBorella ? "#eab308" : "#121214";
+      ctx.strokeStyle = pt.isBorella ? "#fafafa" : "#a1a1aa";
+      ctx.lineWidth = pt.isBorella ? 2 : 1.5;
+      ctx.fillRect(pt.x - sz / 2, pt.y - sz / 2, sz, sz);
+      ctx.strokeRect(pt.x - sz / 2, pt.y - sz / 2, sz, sz);
 
-      ctx.fillStyle = pt.isBorella ? "#92400e" : "#1e293b";
-      ctx.font = pt.isBorella ? "700 10.5px system-ui, sans-serif" : "600 10px system-ui, sans-serif";
+      ctx.fillStyle = pt.isBorella ? "#fde047" : "#e4e4e7";
+      ctx.font = pt.isBorella ? "700 10px 'Space Grotesk', sans-serif" : "600 9.5px 'IBM Plex Sans', sans-serif";
       ctx.fillText(name, pt.x + (pt.ldx || -24), pt.y + (pt.ldy || 15));
     }
 
@@ -834,14 +1013,14 @@
             const pulseY = pulsePt.y - 20 - ageFrac * 18;
             ctx.save();
             ctx.globalAlpha = 1.0 - ageFrac;
-            ctx.font = "700 11px system-ui, sans-serif";
+            ctx.font = "700 10.5px 'IBM Plex Mono', monospace";
             if (ev.madeCount > 0) {
-              ctx.fillStyle = "#16a34a";
+              ctx.fillStyle = "#22c55e";
               ctx.fillText(`+${ev.madeCount} MADE`, pulsePt.x + 14, pulseY);
             }
             const mTot = ev.missedTimingCount + ev.missedCapCount;
             if (mTot > 0) {
-              ctx.fillStyle = "#dc2626";
+              ctx.fillStyle = "#f43f5e";
               ctx.fillText(`-${mTot} MISSED`, pulsePt.x + 14, pulseY + 13);
             }
             ctx.restore();
@@ -853,28 +1032,29 @@
           const pEnd = ev.fromRoute === "CM03" ? bSinger : bYmba;
           const px = pStart.x + (pEnd.x - pStart.x) * frac;
           const py = pStart.y + (pEnd.y - pStart.y) * frac;
-          ctx.fillStyle = ev.madeCount > 0 ? "#16a34a" : "#dc2626";
-          ctx.beginPath();
-          ctx.arc(px, py, 4.5, 0, Math.PI * 2);
-          ctx.fill();
+          ctx.fillStyle = ev.madeCount > 0 ? "#22c55e" : "#f43f5e";
+          ctx.fillRect(px - 4, py - 4, 8, 8);
         }
       }
 
+      const focusId = state.hoveredBusId || state.selectedBusId;
       for (const bus of day.buses) {
         const pos = getBusPositionAtTime(bus, tNow);
         if (!pos) continue;
         activeBusesCount++;
         const isHold = pos.status === "HOLDING";
         if (isHold) activeHoldingBus = bus;
-        drawTopDownBus(pos, bus.routeCode === "CM01", isHold, params.capacityPax);
+        drawTopDownBus(bus, pos, bus.routeCode === "CM01", isHold, bus.tripId === focusId, params.capacityPax);
       }
     }
 
+    drawInspectorOverlay(day, tNow, params);
     drawBorellaInset(day, tNow, params, activeHoldingBus);
 
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = "#121214";
     ctx.fillRect(0, mapH, w, h - mapH);
-    ctx.strokeStyle = "#cbd5e1";
+    ctx.strokeStyle = "#27272a";
+    ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(0, mapH);
     ctx.lineTo(w, mapH);
@@ -882,34 +1062,32 @@
 
     const plotL = 56;
     const plotR = 570;
-    const plotT = mapH + 30;
-    const plotB = h - 24;
+    const plotT = mapH + 34;
+    const plotB = h - 22;
     const plotW = plotR - plotL;
     const plotH = plotB - plotT;
 
-    ctx.fillStyle = "#0f172a";
-    ctx.font = "600 12px system-ui, sans-serif";
-    ctx.fillText("Convergence: Missed Transfers (% +/- 95% CI)", 18, mapH + 19);
-    ctx.strokeStyle = "#e2e8f0";
-    ctx.beginPath();
-    ctx.roundRect(plotL, plotT, plotW, plotH, 8);
-    ctx.stroke();
+    ctx.fillStyle = "#fafafa";
+    ctx.font = "700 11px 'Space Grotesk', sans-serif";
+    ctx.fillText("CONVERGENCE: MISSED TRANSFERS (% +/- 95% CI)", 18, mapH + 20);
+    ctx.strokeStyle = "#27272a";
+    ctx.strokeRect(plotL, plotT, plotW, plotH);
 
     for (let pct = 0; pct <= 100; pct += 25) {
       const y = plotB - (pct / 100) * plotH;
-      ctx.strokeStyle = "#f1f5f9";
+      ctx.strokeStyle = "#1e1e22";
       ctx.beginPath();
       ctx.moveTo(plotL, y);
       ctx.lineTo(plotR, y);
       ctx.stroke();
-      ctx.fillStyle = "#64748b";
-      ctx.font = "10px system-ui, sans-serif";
-      ctx.fillText(`${pct}%`, 22, y + 3);
+      ctx.fillStyle = "#71717a";
+      ctx.font = "10px 'IBM Plex Mono', monospace";
+      ctx.fillText(`${pct}%`, 20, y + 3);
     }
 
     const targetR = params.repTotal;
     if (state.convergenceTrace.length > 1) {
-      ctx.fillStyle = "rgba(2, 132, 199, 0.16)";
+      ctx.fillStyle = "rgba(56, 189, 248, 0.16)";
       ctx.beginPath();
       state.convergenceTrace.forEach((pt, idx) => {
         const x = plotL + (pt.day / targetR) * plotW;
@@ -926,7 +1104,7 @@
       ctx.closePath();
       ctx.fill();
 
-      ctx.strokeStyle = "#0284c7";
+      ctx.strokeStyle = "#38bdf8";
       ctx.lineWidth = 2;
       ctx.beginPath();
       state.convergenceTrace.forEach((pt, idx) => {
@@ -938,11 +1116,11 @@
       ctx.stroke();
     }
 
-    const barAreaX = 605;
+    const barAreaX = 602;
     const barAreaW = w - barAreaX - 24;
-    ctx.fillStyle = "#0f172a";
-    ctx.font = "600 12px system-ui, sans-serif";
-    ctx.fillText("Objective J Cost Breakdown (pax-min)", barAreaX, mapH + 19);
+    ctx.fillStyle = "#fafafa";
+    ctx.font = "700 11px 'Space Grotesk', sans-serif";
+    ctx.fillText("OBJECTIVE J COST BREAKDOWN (PAX-MIN)", barAreaX, mapH + 20);
 
     const meanWait = state.waitCostHistory.length > 0
       ? computeMeanAndCi(state.waitCostHistory).mean
@@ -950,39 +1128,54 @@
     const meanHold = state.holdCostHistory.length > 0
       ? computeMeanAndCi(state.holdCostHistory).mean
       : (day ? day.holdCostTotal : 0);
-    const maxBar = Math.max(100, meanWait + meanHold);
+    const totalJ = meanWait + meanHold;
+    const maxBar = Math.max(100, totalJ);
 
-    ctx.fillStyle = "#475569";
-    ctx.font = "11px system-ui, sans-serif";
-    ctx.fillText(`Transfer Wait Cost (2.0x): ${meanWait.toFixed(0)}`, barAreaX, mapH + 46);
-    ctx.fillStyle = "#e2e8f0";
-    ctx.beginPath();
-    ctx.roundRect(barAreaX, mapH + 54, barAreaW, 18, 4);
-    ctx.fill();
-    ctx.fillStyle = "#0284c7";
-    ctx.beginPath();
-    ctx.roundRect(barAreaX, mapH + 54, barAreaW * (meanWait / maxBar), 18, 4);
-    ctx.fill();
+    ctx.fillStyle = "#d4d4d8";
+    ctx.font = "600 10.5px 'IBM Plex Mono', monospace";
+    ctx.fillText(`TRANSFER WAIT COST (2.0x): ${meanWait.toFixed(0)}`, barAreaX, mapH + 46);
+    ctx.fillStyle = "#27272a";
+    ctx.fillRect(barAreaX, mapH + 54, barAreaW, 14);
+    ctx.fillStyle = "#38bdf8";
+    ctx.fillRect(barAreaX, mapH + 54, barAreaW * (meanWait / maxBar), 14);
 
-    ctx.fillStyle = "#475569";
-    ctx.fillText(`On-Board Hold Cost (1.0x): ${meanHold.toFixed(0)}`, barAreaX, mapH + 92);
-    ctx.fillStyle = "#e2e8f0";
-    ctx.beginPath();
-    ctx.roundRect(barAreaX, mapH + 100, barAreaW, 18, 4);
-    ctx.fill();
-    ctx.fillStyle = "#d97706";
-    ctx.beginPath();
-    ctx.roundRect(barAreaX, mapH + 100, barAreaW * (meanHold / maxBar), 18, 4);
-    ctx.fill();
+    ctx.fillStyle = "#d4d4d8";
+    ctx.fillText(`ON-BOARD HOLD COST (1.0x): ${meanHold.toFixed(0)}`, barAreaX, mapH + 92);
+    ctx.fillStyle = "#27272a";
+    ctx.fillRect(barAreaX, mapH + 100, barAreaW, 14);
+    ctx.fillStyle = "#eab308";
+    ctx.fillRect(barAreaX, mapH + 100, barAreaW * (meanHold / maxBar), 14);
 
-    const stateNames = CFG.trafficModel.stateNames;
-    $("simClock").textContent = `Day ${state.dayIndex} | ${formatMinutesToHhmm(tNow)}`;
+    ctx.fillStyle = "#a1a1aa";
+    ctx.fillText(`TOTAL DAILY OBJECTIVE J: ${totalJ.toFixed(0)} pax-min`, barAreaX, mapH + 136);
+
+    const stateNames = ["FREE", "SLOW", "JAMMED"];
+    const dotColors = ["#10b981", "#f59e0b", "#ef4444"];
+    $("simClock").textContent = `DAY ${state.dayIndex} | ${formatMinutesToHhmm(tNow)}`;
     $("timeScrubber").value = Math.round(tNow);
     $("scrubberLabel").textContent = formatMinutesToHhmm(tNow);
-    $("trafficBadge").textContent = `CM01: ${stateNames[st01]} | CM03: ${stateNames[st03]}`;
+    updateSliderFill($("timeScrubber"));
+
+    $("trafficBadgeCm01").textContent = `CM01: ${stateNames[st01]}`;
+    $("dotCm01").style.background = dotColors[st01];
+    $("trafficBadgeCm03").textContent = `CM03: ${stateNames[st03]}`;
+    $("dotCm03").style.background = dotColors[st03];
+
+    const settledToday = madeSoFar + missedSoFar;
+    const madePctToday = settledToday > 0 ? (100.0 * madeSoFar) / settledToday : 0;
+    const missPctToday = settledToday > 0 ? (100.0 * missedSoFar) / settledToday : 0;
+
     $("outTodayMade").textContent = `${madeSoFar}`;
+    $("barTodayMade").style.width = `${madePctToday.toFixed(1)}%`;
+    $("subTodayMade").textContent = `${madePctToday.toFixed(0)}% of ${settledToday} settled today`;
+
     $("outTodayMissed").textContent = `${missedSoFar}`;
+    $("barTodayMissed").style.width = `${missPctToday.toFixed(1)}%`;
+    $("subTodayMissed").textContent = `${missPctToday.toFixed(0)}% of ${settledToday} settled today`;
+
     $("outActive").textContent = `${activeBusesCount} buses / ${walkingPaxCount} pax`;
+    $("barActive").style.width = `${Math.min(100, (activeBusesCount / 16) * 100).toFixed(1)}%`;
+    $("subActive").textContent = `${walkingPaxCount} pax walking at Borella`;
 
     if (state.missAllHistory.length > 0) {
       const mAll = computeMeanAndCi(state.missAllHistory);
@@ -991,12 +1184,28 @@
       const obj = computeMeanAndCi(state.objHistory);
 
       $("outMissAll").textContent = `${mAll.mean.toFixed(1)}% +/- ${mAll.ci.toFixed(1)}%`;
+      $("barMissAll").style.width = `${Math.min(100, mAll.mean).toFixed(1)}%`;
+      $("subMissAll").textContent = `Over ${state.missAllHistory.length} / ${params.repTotal} days`;
+
       $("outMissAB").textContent = `A: ${mA.mean.toFixed(1)}% | B: ${mB.mean.toFixed(1)}%`;
+      $("barMissAB").style.width = `${Math.min(100, 0.5 * (mA.mean + mB.mean)).toFixed(1)}%`;
+      $("subMissAB").textContent = "A: KAD-FOR | B: FOR-KAD";
+
       $("outObjJ").textContent = `${obj.mean.toFixed(0)} +/- ${obj.ci.toFixed(0)}`;
+      $("barObjJ").style.width = `${Math.min(100, (obj.mean / 4500) * 100).toFixed(1)}%`;
+      $("subObjJ").textContent = `Wait ${meanWait.toFixed(0)} | Hold ${meanHold.toFixed(0)}`;
     } else if (day) {
       $("outMissAll").textContent = `${day.missRateAllPct.toFixed(1)}% (Day 1)`;
+      $("barMissAll").style.width = `${Math.min(100, day.missRateAllPct).toFixed(1)}%`;
+      $("subMissAll").textContent = "Day 1 preview (click +1 Day or Run All R)";
+
       $("outMissAB").textContent = `A: ${day.missRateAPct.toFixed(1)}% | B: ${day.missRateBPct.toFixed(1)}%`;
+      $("barMissAB").style.width = `${Math.min(100, 0.5 * (day.missRateAPct + day.missRateBPct)).toFixed(1)}%`;
+      $("subMissAB").textContent = "A: KAD-FOR | B: FOR-KAD";
+
       $("outObjJ").textContent = `${day.objectiveJ.toFixed(0)} (Day 1)`;
+      $("barObjJ").style.width = `${Math.min(100, (day.objectiveJ / 4500) * 100).toFixed(1)}%`;
+      $("subObjJ").textContent = `Wait ${day.waitCostTotal.toFixed(0)} | Hold ${day.holdCostTotal.toFixed(0)}`;
     }
   }
 
@@ -1006,20 +1215,29 @@
 
     const tbody = $("scheduleTableBody");
     tbody.innerHTML = "";
-    const conns = day.buses.filter((b) => b.legKey === "CM01_MAK_to_FOR" || b.legKey === "CM03_MAK_to_KAD")
+    const conns = day.buses
+      .filter((b) => b.legKey === "CM01_MAK_to_FOR" || b.legKey === "CM03_MAK_to_KAD")
       .sort((a, b) => a.borellaSchedMin - b.borellaSchedMin);
 
     for (const c of conns) {
       const tr = document.createElement("tr");
+      if (state.selectedBusId === c.tripId) tr.classList.add("selected-row");
       const delay = c.borellaArrMin - c.borellaSchedMin;
       tr.innerHTML = `
         <td><strong>${c.tripId}</strong></td>
         <td>${formatMinutesToHhmm(c.borellaSchedMin)}</td>
         <td>${formatMinutesToHhmm(c.borellaArrMin)} (${delay >= 0 ? "+" : ""}${delay.toFixed(1)}m)</td>
         <td>${formatMinutesToHhmm(c.borellaActualDepMin)}</td>
-        <td>${c.borellaHoldMin > 0.05 ? c.borellaHoldMin.toFixed(1) + " min" : "-"}</td>
-        <td>${c.borellaOnboardPax} / ${readUIParams().capacityPax}</td>
+        <td>${c.borellaHoldMin > 0.05 ? c.borellaHoldMin.toFixed(1) + "m" : "-"}</td>
+        <td>${c.borellaOnboardPax}/${readUIParams().capacityPax}</td>
       `;
+      tr.addEventListener("click", () => {
+        pauseSimulation();
+        state.selectedBusId = c.tripId;
+        state.simClockMin = Math.max(270, Math.min(1350, c.borellaArrMin));
+        populateDayTables();
+        renderCanvasAndTables();
+      });
       tbody.appendChild(tr);
     }
 
@@ -1027,10 +1245,19 @@
     logList.innerHTML = "";
     for (const ev of day.transferEvents) {
       const li = document.createElement("li");
-      const statusText = ev.madeCount === ev.paxCount
+      const isAllMade = ev.madeCount === ev.paxCount;
+      li.className = isAllMade ? "log-made" : "log-missed";
+      const statusText = isAllMade
         ? `MADE ${ev.boardedConnId} (${ev.paxCount} pax)`
         : `MISSED ${ev.targetConnId} (made ${ev.madeCount}, timing ${ev.missedTimingCount}, cap ${ev.missedCapCount})`;
       li.textContent = `[${formatMinutesToHhmm(ev.readyMin)}] ${ev.feederId} -> ${statusText}`;
+      li.addEventListener("click", () => {
+        pauseSimulation();
+        state.selectedBusId = ev.targetConnId || ev.feederId;
+        state.simClockMin = Math.max(270, Math.min(1350, ev.readyMin - 1.0));
+        populateDayTables();
+        renderCanvasAndTables();
+      });
       logList.appendChild(li);
     }
   }
@@ -1114,9 +1341,17 @@
   function resetSimulation() {
     pauseSimulation();
     const params = readUIParams();
+    const calKey = `${params.seed}|${params.peakSpeedKmph}|${params.capacityPax}`;
+    if (state.lastCalKey !== calKey) {
+      state.legSpeedAlphas = calibrateLegAlphas(params.seed, params.peakSpeedKmph, params.capacityPax);
+      state.lastCalKey = calKey;
+      updateAlphaReadout();
+    }
     state.rng = createSeededRng(params.seed);
     state.dayIndex = 1;
     state.simClockMin = 450;
+    state.selectedBusId = null;
+    state.hoveredBusId = null;
     state.missAllHistory = [];
     state.missAHistory = [];
     state.missBHistory = [];
@@ -1131,6 +1366,37 @@
     renderCanvasAndTables();
   }
 
+  function hitTestBus(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / Math.max(1, rect.width);
+    const scaleY = canvas.height / Math.max(1, rect.height);
+    const x = (clientX - rect.left) * scaleX;
+    const y = (clientY - rect.top) * scaleY;
+    for (const item of state.renderedBuses) {
+      if (Math.abs(x - item.bx) <= 18 && Math.abs(y - item.by) <= 18) {
+        return item;
+      }
+    }
+    return null;
+  }
+
+  canvas.addEventListener("mousemove", (e) => {
+    const hit = hitTestBus(e.clientX, e.clientY);
+    const nextHover = hit ? hit.tripId : null;
+    canvas.style.cursor = hit ? "pointer" : "default";
+    if (nextHover !== state.hoveredBusId) {
+      state.hoveredBusId = nextHover;
+      renderCanvasAndTables();
+    }
+  });
+
+  canvas.addEventListener("click", (e) => {
+    const hit = hitTestBus(e.clientX, e.clientY);
+    state.selectedBusId = hit ? (state.selectedBusId === hit.tripId ? null : hit.tripId) : null;
+    populateDayTables();
+    renderCanvasAndTables();
+  });
+
   $("startBtn").addEventListener("click", () => (state.running ? pauseSimulation() : startSimulation()));
   $("resetBtn").addEventListener("click", resetSimulation);
   $("nextDayBtn").addEventListener("click", stepNextDayInstant);
@@ -1141,15 +1407,51 @@
     renderCanvasAndTables();
   });
 
+  document.querySelectorAll(".time-jump-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      pauseSimulation();
+      state.simClockMin = parseFloat(btn.dataset.jumpMin);
+      renderCanvasAndTables();
+    });
+  });
+
+  function clearActivePreset() {
+    document.querySelectorAll(".preset-btn").forEach((b) => b.classList.remove("active"));
+  }
+
+  document.querySelectorAll("[data-policy]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      clearActivePreset();
+      $("policy").value = btn.dataset.policy;
+      updateControlReadouts();
+      resetSimulation();
+    });
+  });
+
+  document.querySelectorAll("[data-shift-route]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      clearActivePreset();
+      $("shiftRoute").value = btn.dataset.shiftRoute;
+      updateControlReadouts();
+      resetSimulation();
+    });
+  });
+
   ["holdMax", "shiftMin", "walkTime", "capacityPax", "peakSpeed", "repTotal"].forEach((id) => {
     $(id).addEventListener("input", () => {
+      clearActivePreset();
       updateControlReadouts();
       resetSimulation();
     });
   });
 
   $("animSpeed").addEventListener("input", updateControlReadouts);
-  ["policy", "shiftRoute", "seed"].forEach((id) => $(id).addEventListener("change", resetSimulation));
+  ["policy", "shiftRoute", "seed"].forEach((id) => {
+    $(id).addEventListener("change", () => {
+      updateControlReadouts();
+      resetSimulation();
+    });
+  });
 
   document.querySelectorAll(".preset-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
