@@ -78,15 +78,15 @@ $$J(h, \Delta) = w_{\text{wait}}\, \mathbb{E}\left[\sum_i W_i\right] + w_{\text{
 
 | Check | Expected | Obtained | Pass? |
 |---|---|---|---|
-| 1. Markov stationary state shares | $\max |\hat{\pi} - \pi^*| < 0.015$ ($N=50{,}000$) | Off-peak `0.0062`, Peak `0.0034` | Pass |
-| 2. Calibrated traffic speeds and leg runtimes | Relative error $< 2\%$ against targets/schedule | Off-peak speed `21.96 km/h` (`0.17%`), Peak speed `14.08 km/h` (`0.56%`); leg cal errs `0.00%-0.09%`, 80-day test delays `-0.65m` to `+1.35m` (inside 99% combined CI) | Pass |
+| 1. Markov stationary state shares | $\max |\hat{\pi} - \pi^*| < 0.015$ ($N=50{,}000$) | Off-peak `0.0058`, Peak `0.0021` | Pass |
+| 2. Calibrated traffic speeds and leg runtimes | Relative error $< 2\%$ against targets/schedule | Off-peak speed `29.33 km/h` vs `29.37` (`0.12%`), Peak speed `24.11 km/h` vs `24.10` (`0.04%`); leg cal errs `0.01%-0.10%`, 80-day test delays `-1.50m` to `+0.82m` (inside 99% combined CI) | Pass |
 | 3. Zero-variance deterministic limit | $P(\text{miss}) = 0.0$ when $\text{offset} \ge w$, uncapped | `missed_total = 0`, `made = 10` (`P(miss) = 0.0`) | Pass |
 | 4. Closed-form Gaussian transfer probability | Matches $\Phi((s + h - w - (\mu_f - \mu_c))/\sqrt{\sigma_f^2+\sigma_c^2})$ in 95% CI | One-sided `h=0/2/4m`: `0.3120/0.5669/0.7993` vs `0.3085/0.5662/0.7977`; two-sided: `0.7043` vs `0.7021` ($N=12{,}000$) | Pass |
 | 5. Exact passenger conservation | Stop queues and transfer outcomes conserve 100% of generated pax | Exact stop queue and transfer partition conservation verified | Pass |
 | 6. $h = 0$ limiting equivalence | `schedule(0)` and `realtime(0)` match `none` identically | All counts, wait times, and costs match identically | Pass |
 | 7. Capacity invariant and uncapped equivalence | Load $\le 80$ always; uncapped produces 0 capacity misses | Capped max load `80 <= 80`; uncapped `missed_capacity = 0` | Pass |
-| 8. CRN variance reduction | $\text{Var}_{\text{CRN}}(J(3)-J(0)) < \text{Var}_{\text{indep}}(J(3)-J(0))$ | Paired Var `219,218.9` vs Indep Var `5,603,273.2` (`96.1%` reduction) | Pass |
-| X2. Monte Carlo $O(R^{-1/2})$ scaling | Log-log OLS slope of 95% CI half-width near $-0.5$ | Log-log OLS slope `-0.476` over `R = 25..2000` | Pass |
+| 8. CRN variance reduction | $\text{Var}_{\text{CRN}}(J(3)-J(0)) < \text{Var}_{\text{indep}}(J(3)-J(0))$ | Paired Var `352,745.6` vs Indep Var `4,696,326.8` (`92.5%` reduction) | Pass |
+| X2. Monte Carlo $O(R^{-1/2})$ scaling | Log-log OLS slope of 95% CI half-width near $-0.5$ | Log-log OLS slope `-0.475` over `R = 25..2000` | Pass |
 
 ![Verification plot](figures/verification.png)
 

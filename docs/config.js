@@ -32,21 +32,21 @@ window.SIM_CONFIG = {
 
   trafficModel: {
     stateNames: ["Free", "Slow", "Jammed"],
-    stateSpeedsKmph: [30.0, 15.0, 5.0],
+    stateSpeedsKmph: [36.0, 20.0, 10.0],
     jamParamBounds: [0.01, 0.85],
-    targetSpeedOffpeakKmph: 22.0,
-    targetSpeedPeakKmph: 14.0
+    targetSpeedOffpeakKmph: 29.37,
+    targetSpeedPeakKmph: 24.10
   },
 
   notebookReference: {
-    description: "Verified Python notebook ensemble (seed = 42, w = 3.5 min, R = 1000 CRN days)",
+    description: "Verified Python notebook ensemble calibrated to cmb_traffic (52,255 journeys, seed = 42, w = 3.5 min, R = 1000 CRN days)",
     status: "verified",
     tolerancePct: 5.0,
     calibratedAlphas: {
-      CM01_MAK_to_FOR: 0.894,
-      CM01_FOR_to_MAK: 0.867,
-      CM03_MAK_to_KAD: 0.863,
-      CM03_KAD_to_MAK: 0.882
+      CM01_MAK_to_FOR: 0.582,
+      CM01_FOR_to_MAK: 0.533,
+      CM03_MAK_to_KAD: 0.575,
+      CM03_KAD_to_MAK: 0.581
     },
     baseline: {
       policy: "none",
@@ -54,13 +54,13 @@ window.SIM_CONFIG = {
       shiftRoute: "CM01",
       shiftMin: 0,
       replications: 1000,
-      missAllPct: 23.45,
-      missAllCi95: 0.67,
-      missAPct: 20.23,
-      missBPct: 25.79,
-      meanWaitMin: 43.67,
-      objectiveJ: 8273.5,
-      objectiveJCi95: 108.3
+      missAllPct: 19.94,
+      missAllCi95: 0.61,
+      missAPct: 18.78,
+      missBPct: 20.75,
+      meanWaitMin: 39.99,
+      objectiveJ: 7577.5,
+      objectiveJCi95: 101.7
     },
     holdOnlyRealtime3m: {
       policy: "realtime",
@@ -68,45 +68,45 @@ window.SIM_CONFIG = {
       shiftRoute: "CM01",
       shiftMin: 0,
       replications: 1000,
-      missAllPct: 22.23,
-      missAllCi95: 0.66,
-      missAPct: 18.46,
-      missBPct: 24.98,
-      meanWaitMin: 42.82,
-      holdCostPaxMin: 16.0,
-      objectiveJ: 8128.3,
-      objectiveJCi95: 106.7
+      missAllPct: 18.47,
+      missAllCi95: 0.61,
+      missAPct: 16.61,
+      missBPct: 19.79,
+      meanWaitMin: 38.95,
+      holdCostPaxMin: 19.9,
+      objectiveJ: 7401.6,
+      objectiveJCi95: 101.2
     },
     jointOptimalRealtime: {
       policy: "realtime",
       holdMaxMin: 6.0,
       shiftRoute: "CM01",
-      shiftMin: 10,
+      shiftMin: 5,
       replications: 1000,
-      missAllPct: 18.54,
-      missAllCi95: 0.56,
-      missAPct: 12.15,
-      missBPct: 23.17,
-      meanWaitMin: 41.57,
-      holdCostPaxMin: 50.2,
-      objectiveJ: 7940.7,
-      objectiveJCi95: 104.4
+      missAllPct: 14.33,
+      missAllCi95: 0.53,
+      missAPct: 11.72,
+      missBPct: 16.17,
+      meanWaitMin: 37.50,
+      holdCostPaxMin: 51.7,
+      objectiveJ: 7167.7,
+      objectiveJCi95: 95.4
     },
     jointUncapped: {
       capacityPax: null,
       policy: "realtime",
       holdMaxMin: 6.0,
       shiftRoute: "CM01",
-      shiftMin: 10,
+      shiftMin: 5,
       replications: 1000,
-      missAllPct: 7.09,
-      missAllCi95: 0.40,
-      missAPct: 7.58,
-      missBPct: 6.72,
-      meanWaitMin: 35.39,
-      holdCostPaxMin: 46.8,
-      objectiveJ: 6784.7,
-      objectiveJCi95: 73.0
+      missAllPct: 5.47,
+      missAllCi95: 0.36,
+      missAPct: 8.54,
+      missBPct: 3.26,
+      meanWaitMin: 31.90,
+      holdCostPaxMin: 53.5,
+      objectiveJ: 6131.4,
+      objectiveJCi95: 65.0
     }
   },
 

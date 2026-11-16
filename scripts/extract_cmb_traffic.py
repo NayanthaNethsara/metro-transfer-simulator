@@ -1,8 +1,11 @@
 import argparse
 import csv
+from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
+
+COLOMBO_TZ = timezone(timedelta(hours=5, minutes=30))
 
 TARGET_CORRIDORS: Tuple[Tuple[str, str], ...] = (
     ("Kiribathgoda", "Dematagoda"),
@@ -34,6 +37,14 @@ def classify_corridor(origin_name: str, dest_name: str) -> str:
 
 
 def iter_traffic_records(repo_root: Path) -> Iterable[Dict]:
+    tsv_path = repo_root / "data" / "all_journeys.tsv"
+    if tsv_path.exists():
+        with tsv_path.open("r", encoding="utf-8") as handle:
+            reader = csv.DictReader(handle, delimiter="\t")
+            for row in reader:
+                yield row
+        return
+
     for json_path in sorted(repo_root.rglob("*.json")):
         with json_path.open("r", encoding="utf-8") as handle:
             payload = json.load(handle)
@@ -43,20 +54,36 @@ def iter_traffic_records(repo_root: Path) -> Iterable[Dict]:
                 yield rec
 
 
+def parse_hour_and_timestamp(rec: Dict) -> Tuple[int, str]:
+    if "ut_start" in rec and rec["ut_start"] not in (None, ""):
+        ut_sec = float(rec["ut_start"])
+        dt_local = datetime.fromtimestamp(ut_sec, tz=COLOMBO_TZ)
+        return dt_local.hour, dt_local.isoformat(timespec="seconds")
+    start_time_str = str(rec.get("start_time", rec.get("timestamp", "")))
+    hour_int = int(start_time_str[11:13]) if len(start_time_str) >= 13 else -1
+    return hour_int, start_time_str
+
+
 def extract_corridor_rows(repo_root: Path) -> List[Dict]:
     extracted: List[Dict] = []
     for rec in iter_traffic_records(repo_root):
-        origin = str(rec.get("origin", rec.get("from", "")))
-        dest = str(rec.get("destination", rec.get("to", "")))
+        route = rec.get("route") if isinstance(rec.get("route"), dict) else {}
+        start_loc = route.get("start_location") if isinstance(route.get("start_location"), dict) else {}
+        end_loc = route.get("end_location") if isinstance(route.get("end_location"), dict) else {}
+
+        origin = str(rec.get("start_name", start_loc.get("name", rec.get("origin", rec.get("from", "")))))
+        dest = str(rec.get("end_name", end_loc.get("name", rec.get("destination", rec.get("to", "")))))
         corridor_id = classify_corridor(origin, dest)
         if not corridor_id:
             continue
 
-        start_time_str = str(rec.get("start_time", rec.get("timestamp", "")))
-        hour_int = int(start_time_str[11:13]) if len(start_time_str) >= 13 else -1
+        hour_int, start_time_str = parse_hour_and_timestamp(rec)
+        if hour_int < 0:
+            continue
+
         duration_min = float(rec.get("duration_min", rec.get("duration", 0.0)))
         distance_km = float(rec.get("distance_km", rec.get("distance", 0.0)))
-        speed_kmph = float(rec.get("speed_kmph", rec.get("speed", 0.0)))
+        speed_kmph = float(rec.get("avg_speed_kmph", rec.get("speed_kmph", rec.get("speed", 0.0))))
         if speed_kmph <= 0.0 and duration_min > 0.0 and distance_km > 0.0:
             speed_kmph = distance_km / (duration_min / 60.0)
         if speed_kmph <= 0.0:

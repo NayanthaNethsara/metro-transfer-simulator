@@ -1470,7 +1470,7 @@
         $("policy").value = "realtime";
         $("holdMax").value = "6.0";
         $("shiftRoute").value = "CM01";
-        $("shiftMin").value = "10";
+        $("shiftMin").value = "5";
       }
       updateControlReadouts();
       resetSimulation();
