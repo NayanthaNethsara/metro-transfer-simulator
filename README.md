@@ -62,7 +62,11 @@ This project applies next-event time-advance discrete-event simulation with FIFO
 
 ## Results, limitations and future work
 
-- **Summary of findings:** `[Pending Colab run — execute notebook/metro-transfer-simulator.ipynb via Runtime -> Run all in Google Colab and populate verified baseline, optimal (h*, Delta*), and 95% CI numbers here.]`
+- **Summary of findings (R = 1,000 CRN days, 95% CI):**
+  - **Baseline (current timetable, no holding):** `23.45 +/- 0.67%` missed connections overall (`20.23 +/- 0.95%` Group A Kadawatha-Pettah, `25.79 +/- 0.89%` Group B Pettah-Kadawatha), mean wait `43.67 +/- 0.48 min`, daily cost `J = 8273.5 +/- 108.3 pax-min`. Under the independent `E1` baseline sample (`R = 1,000`), misses decompose into `10.57%` timing misses and `13.05%` capacity misses (`23.62 +/- 0.67%` total).
+  - **Hold-only at current timetable (h = 3.0 min):** Schedule holding (`J = 8282.6 +/- 109.0 pax-min`, hold cost `186.8 pax-min`) barely offsets on-board delay; real-time ETA holding avoids futile holds (`16.0` vs `186.8 pax-min` hold cost) to achieve `22.23 +/- 0.66%` missed and `J = 8128.3 +/- 106.7 pax-min`.
+  - **Joint optimal coordination (CM01 shift +10 min, real-time ETA hold h = 6.0 min):** Cuts overall misses to `18.54 +/- 0.56%` (Group A drops nearly in half from `20.23%` to `12.15 +/- 0.80%`; Group B drops to `23.17 +/- 0.76%`), reduces mean wait to `41.57 +/- 0.47 min`, limits hold penalty to `50.2 pax-min` (versus `310.0 pax-min` for naive schedule holding at the same shift and `h`), and lowers daily objective cost to `J = 7940.7 +/- 104.4 pax-min`.
+  - **Capacity bottleneck (E5 uncapped C = inf):** Removing the 80-passenger seat limit at the same joint optimal policy drops missed connections to `7.09 +/- 0.40%` (`7.58%` Group A, `6.72%` Group B, `J = 6784.7 +/- 73.0 pax-min`), proving that remaining peak misses stem primarily from full buses rather than schedule offset alone.
 - **Main limitations:** Stop-level passenger arrival rates, transfer volumes, Borella walk time ($3.5\text{ min}$), and stop-to-stop road distances currently use flagged placeholders anchored to published Western Province bus loading profiles until direct field measurements and extracted `cmb_traffic` summaries are supplied. Corridor Markov chains currently evolve independently without shared junction correlation.
 
 ## Key references

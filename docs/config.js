@@ -39,9 +39,75 @@ window.SIM_CONFIG = {
   },
 
   notebookReference: {
-    description: "Pending Colab verification lock-in after runtime execution (Policy: realtime, h = 3.0 min, shift = 0 min, w = 3.5 min, seed = 42)",
-    status: "pending_colab_run",
-    tolerancePct: 5.0
+    description: "Verified Python notebook ensemble (seed = 42, w = 3.5 min, R = 1000 CRN days)",
+    status: "verified",
+    tolerancePct: 5.0,
+    calibratedAlphas: {
+      CM01_MAK_to_FOR: 0.894,
+      CM01_FOR_to_MAK: 0.867,
+      CM03_MAK_to_KAD: 0.863,
+      CM03_KAD_to_MAK: 0.882
+    },
+    baseline: {
+      policy: "none",
+      holdMaxMin: 0.0,
+      shiftRoute: "CM01",
+      shiftMin: 0,
+      replications: 1000,
+      missAllPct: 23.45,
+      missAllCi95: 0.67,
+      missAPct: 20.23,
+      missBPct: 25.79,
+      meanWaitMin: 43.67,
+      objectiveJ: 8273.5,
+      objectiveJCi95: 108.3
+    },
+    holdOnlyRealtime3m: {
+      policy: "realtime",
+      holdMaxMin: 3.0,
+      shiftRoute: "CM01",
+      shiftMin: 0,
+      replications: 1000,
+      missAllPct: 22.23,
+      missAllCi95: 0.66,
+      missAPct: 18.46,
+      missBPct: 24.98,
+      meanWaitMin: 42.82,
+      holdCostPaxMin: 16.0,
+      objectiveJ: 8128.3,
+      objectiveJCi95: 106.7
+    },
+    jointOptimalRealtime: {
+      policy: "realtime",
+      holdMaxMin: 6.0,
+      shiftRoute: "CM01",
+      shiftMin: 10,
+      replications: 1000,
+      missAllPct: 18.54,
+      missAllCi95: 0.56,
+      missAPct: 12.15,
+      missBPct: 23.17,
+      meanWaitMin: 41.57,
+      holdCostPaxMin: 50.2,
+      objectiveJ: 7940.7,
+      objectiveJCi95: 104.4
+    },
+    jointUncapped: {
+      capacityPax: null,
+      policy: "realtime",
+      holdMaxMin: 6.0,
+      shiftRoute: "CM01",
+      shiftMin: 10,
+      replications: 1000,
+      missAllPct: 7.09,
+      missAllCi95: 0.40,
+      missAPct: 7.58,
+      missBPct: 6.72,
+      meanWaitMin: 35.39,
+      holdCostPaxMin: 46.8,
+      objectiveJ: 6784.7,
+      objectiveJCi95: 73.0
+    }
   },
 
   routes: {

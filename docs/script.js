@@ -1468,9 +1468,9 @@
         $("shiftMin").value = "0";
       } else if (preset === "realtime") {
         $("policy").value = "realtime";
-        $("holdMax").value = "3.0";
-        $("shiftRoute").value = "CM03";
-        $("shiftMin").value = "-15";
+        $("holdMax").value = "6.0";
+        $("shiftRoute").value = "CM01";
+        $("shiftMin").value = "10";
       }
       updateControlReadouts();
       resetSimulation();
