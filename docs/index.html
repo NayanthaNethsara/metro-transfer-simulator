@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -151,9 +152,9 @@
 
       <details>
         <summary>About / How to Use &amp; Model Rules</summary>
-        <p>All schedules, stop distances, dwell coefficients, and Markov traffic speeds are defined in <code>docs/config.js</code>. Per-leg speed scaling factors (alpha) are calibrated dynamically in your browser via bisection on seed or parameter reset.</p>
+        <p>All schedules, stop distances, dwell coefficients, and Markov traffic speeds are defined in <code>docs/config.js</code>. Stop locations and road paths on the map come from OpenStreetMap (<code>docs/corridor-geo.js</code>) and are for display only. Per-leg speed scaling factors (alpha) are calibrated dynamically in your browser via bisection on seed or parameter reset.</p>
         <ul>
-          <li><strong>Interactive inspection:</strong> Click any moving bus on the map, any row in the Connector table, or any item in the Transfer Log to jump directly to that Borella event.</li>
+          <li><strong>Interactive inspection:</strong> Hover or click any bus on the map (buses keep to the left lane of their direction), any row in the Connector table, or any item in the Transfer Log to jump directly to that Borella event.</li>
           <li><strong>Dwell formula:</strong> (12s + 2s * alight + 3s * board) / 60.</li>
           <li><strong>Traffic DTMC:</strong> 3-state peak/off-peak Markov chain calibrated via stationary distribution bisection (peak 06:00-09:00 and 17:00-20:00).</li>
           <li><strong>Objective J:</strong> 2.0 * transfer wait + 1.0 * on-board hold pax-min (60 min penalty if the last connector is missed).</li>
@@ -176,16 +177,9 @@
         </div>
       </div>
 
-      <div class="legend-row">
-        <span><span class="swatch" style="background:var(--route-cm01)"></span>CM01 (Makumbura - Fort)</span>
-        <span><span class="swatch" style="background:var(--route-cm03)"></span>CM03 (Makumbura - Kadawatha)</span>
-        <span><span class="swatch" style="background:var(--state-free)"></span>Free (36 km/h)</span>
-        <span><span class="swatch" style="background:var(--state-slow)"></span>Slow (20 km/h)</span>
-        <span><span class="swatch" style="background:var(--state-jammed)"></span>Jammed (10 km/h)</span>
-        <span><span class="swatch" style="background:var(--color-warning)"></span>Connector Holding</span>
+      <div class="map-shell">
+        <div id="corridorMap" class="corridor-map" role="region" aria-label="Street map of the CM01 and CM03 corridors with live buses, traffic and Borella transfers"></div>
       </div>
-
-      <canvas id="mapCanvas" width="940" height="590" aria-label="Colombo corridor transit map and convergence chart"></canvas>
 
       <div class="stats-grid">
         <div class="stat-card">
@@ -226,6 +220,14 @@
         </div>
       </div>
 
+      <div class="research-panel">
+        <div class="section-header">
+          <h2 class="section-title">Research Panel: Monte Carlo Estimates</h2>
+          <span class="section-hint">HOVER CHART FOR VALUES</span>
+        </div>
+        <canvas id="researchCanvas" aria-label="Running mean of missed transfers with 95% confidence band, and the daily cost J split into wait and hold"></canvas>
+      </div>
+
       <div class="bottom-panels">
         <div class="table-box">
           <div class="section-header">
@@ -258,7 +260,10 @@
     </section>
   </div>
 
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script src="config.js"></script>
+  <script src="corridor-geo.js"></script>
+  <script src="corridor-map.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

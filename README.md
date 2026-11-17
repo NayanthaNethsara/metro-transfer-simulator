@@ -15,7 +15,9 @@ Lanka Metro Transit operates fixed-schedule, digitally ticketed Metro buses alon
 - **Group A (Kadawatha to Pettah):** CM03 northbound/southbound approach from Kadawatha to Borella (`Borella 02 - YMBA`), transferring to CM01 towards Colombo Fort (`Borella Singer Mega`).
 - **Group B (Pettah to Kadawatha):** CM01 approach from Colombo Fort/Pettah to Borella, transferring to CM03 towards Kadawatha.
 
-Uncoordinated timetables, road traffic variability, dwell-time fluctuations, and an 80-passenger bus capacity limit make tight transfers fragile, where a missed connection often adds roughly 60 minutes of waiting. **Question:** What Borella bus-holding rule (none, schedule-based, or real-time ETA-based) and route-level timetable shift $\Delta$ minimize missed connections across both directions simultaneously without imposing excessive delay on on-board through-passengers?
+The ticket is part-paid: the passenger pays part of the fare on the first bus and the balance on the connecting bus within a validity window (proposed: 2 hours). Seats are not reserved, so boarding at Borella is first come, first served, and a passenger who cannot board either waits for the next Metro bus or leaves to use other transport.
+
+Uncoordinated timetables, road traffic variability, dwell-time fluctuations, and an 80-passenger bus capacity limit make tight transfers fragile, where a missed connection often means waiting an hour or more, or abandoning the Metro trip. **Question:** What Borella bus-holding rule (none, schedule-based, or real-time ETA-based) and route-level timetable shift $\Delta$ minimize missed connections across both directions simultaneously without imposing excessive delay on on-board through-passengers?
 
 ## Quick start
 
@@ -46,9 +48,9 @@ Full controls, output definitions, and scenario walkthroughs: [USER_GUIDE.md](US
 Full derivations, Markov chain formulation, discrete-event queueing rules, assumptions, and parameter provenance: [THEORY.md](THEORY.md).
 
 Summary of the three-layer model:
-1. **Road traffic layer:** Three-state discrete-time Markov chain (`Free: 30 km/h`, `Slow: 15 km/h`, `Jammed: 5 km/h`) on $5\text{ min}$ slots with separate peak (`06:00-09:00`, `17:00-20:00`) and off-peak transition matrices calibrated via bisection.
+1. **Road traffic layer:** Three-state discrete-time Markov chain (`Free: 36 km/h`, `Slow: 20 km/h`, `Jammed: 10 km/h`) on $5\text{ min}$ slots with separate peak (`06:00-09:00`, `17:00-20:00`) and off-peak transition matrices calibrated via bisection to `cmb_traffic` corridor speeds (`29.37 / 24.10 km/h`).
 2. **Bus journey layer:** Stop-by-stop bus progression with inverse-transform exponential passenger arrivals, uniform downstream destinations, linear dwell times $t_{\text{dwell}} = (12 + 2 a_s + 3 b_s)/60\text{ min}$, and FIFO boarding capped at $C = 80$.
-3. **Borella transfer layer:** Priority-queue discrete-event simulation pairing feeders and opposite-direction connectors under `none`, `schedule`, and `realtime` (ETA-based) holding policies, minimizing daily equivalent passenger-minutes $J(h, \Delta) = w_{\text{wait}} \mathbb{E}[\sum_i W_i] + w_{\text{hold}} \mathbb{E}[\sum_b N_b \cdot \text{hold}_b]$.
+3. **Borella transfer layer:** Priority-queue discrete-event simulation pairing feeders and opposite-direction connectors under `none`, `schedule`, and `realtime` (ETA-based) holding policies, with first-come-first-served boarding shared with local Borella passengers, a passenger patience limit ($P = 60\text{ min}$) and ticket validity ($V = 120\text{ min}$) after which passengers leave for other transport. Policies minimize daily equivalent passenger-minutes $J(h, \Delta) = w_{\text{wait}} \mathbb{E}[\sum_i W_i + \pi_{\text{alt}} N_{\text{oow}}] + w_{\text{hold}} \mathbb{E}[\sum_b N_b \cdot \text{hold}_b]$.
 
 ## Verification
 
@@ -63,10 +65,11 @@ This project applies next-event time-advance discrete-event simulation with FIFO
 ## Results, limitations and future work
 
 - **Summary of findings (calibrated to `cmb_traffic`, 52,255 journeys; R = 1,000 CRN days, 95% CI):**
-  - **Baseline (current timetable, no holding):** `19.94 +/- 0.61%` missed connections overall (`18.78 +/- 0.91%` Group A Kadawatha-Pettah, `20.75 +/- 0.82%` Group B Pettah-Kadawatha), mean wait `39.99 +/- 0.45 min`, daily cost `J = 7577.5 +/- 101.7 pax-min`. Under the independent `E1` baseline sample (`R = 1,000`), misses decompose into `9.65%` timing misses and `10.25%` capacity misses (`19.90 +/- 0.62%` total).
-  - **Hold-only at current timetable (h = 3.0 min):** Schedule holding (`J = 7544.9 +/- 103.2 pax-min`, hold cost `177.7 pax-min`) incurs heavy on-board delay; real-time ETA holding avoids futile holds (`19.9` vs `177.7 pax-min` hold cost) to achieve `18.47 +/- 0.61%` missed and `J = 7401.6 +/- 101.2 pax-min`.
-  - **Joint optimal coordination (CM01 shift +5 min, real-time ETA hold h = 6.0 min):** Cuts overall misses to `14.33 +/- 0.53%` (Group A drops from `18.78%` to `11.72 +/- 0.80%`; Group B drops from `20.75%` to `16.17 +/- 0.67%`), reduces mean wait to `37.50 +/- 0.44 min`, limits hold penalty to `51.7 pax-min` (versus `264.9 pax-min` for naive schedule holding at the same shift and `h`), and lowers daily objective cost to `J = 7167.7 +/- 95.4 pax-min`.
-  - **Capacity bottleneck (E5 uncapped C = inf):** Removing the 80-passenger seat limit at the same joint optimal policy drops missed connections to `5.47 +/- 0.36%` (`8.54%` Group A, `3.26%` Group B, `J = 6131.4 +/- 65.0 pax-min`), proving that remaining peak misses stem primarily from full buses rather than schedule offset alone.
+  - **Baseline (current timetable, no holding):** `24.70 +/- 0.64%` missed connections overall (`34.02 +/- 1.05%` Group A Kadawatha-Pettah, `17.90 +/- 0.78%` Group B Pettah-Kadawatha), and `15.11 +/- 0.54%` of through-ticket passengers give up and use other transport. Mean wait `36.92 +/- 0.37 min`, daily cost `J = 9392.5 +/- 94.4 pax-min`. In the independent `E1` sample, misses are mostly timing misses (`21.54%`) rather than full buses (`3.54%`).
+  - **Hold-only at current timetable (h = 3.0 min):** Schedule holding barely changes the cost (`J = 9381.1 +/- 97.7`, hold cost `351.9 pax-min`); real-time ETA holding avoids futile holds (hold cost `33.9 pax-min`), giving `21.63 +/- 0.61%` missed and `J = 9090.2 +/- 95.1 pax-min`.
+  - **Best tested policy (CM01 shift +5 min, real-time ETA hold h = 6.0 min):** Cuts overall misses to `15.36 +/- 0.54%` (Group A `17.79%`, Group B `13.58%`) and lost passengers to `8.85 +/- 0.42%`, with hold cost `120.3 pax-min` (versus `543.2` for schedule holding at the same shift and `h`) and `J = 8652.5 +/- 91.0 pax-min`. `h = 6 min` is the edge of the tested grid, so longer holds may help further.
+  - **Capacity (E5 uncapped C = inf):** Removing the 80-passenger limit at the best policy only lowers misses to `12.53 +/- 0.51%`, so with first-come-first-served boarding and passenger patience most remaining misses are timing misses, not full buses.
+  - **Ticket validity (E6):** 95% of boarded through-ticket passengers wait under `80 min` at Borella, and `99.8%` board within `120 min`, so the proposed 2-hour validity covers almost every transfer.
 - **Main limitations:** Stop-level passenger arrival rates, transfer volumes, Borella walk time ($3.5\text{ min}$), and stop-to-stop road distances currently use flagged placeholders anchored to published Western Province bus loading profiles until direct field measurements and extracted `cmb_traffic` summaries are supplied. Corridor Markov chains currently evolve independently without shared junction correlation.
 
 ## Key references

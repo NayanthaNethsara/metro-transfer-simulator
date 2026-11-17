@@ -11,25 +11,27 @@ Each feeder trip $f$ is mapped to its earliest opposite-direction connector $c(f
 
 $$s_f = T_{c(f),\text{sched}} - \left(T_{f,\text{sched}} + w\right)$$
 
-Feeders whose scheduled Borella time falls after the last opposite-direction connector are classified as `out_of_window` so passenger conservation holds without distorting in-window transfer rates.
+Feeders whose scheduled Borella time falls after the last opposite-direction connector are classified as `out_of_window`. Their passengers have no Metro connection that day and are charged the alternative-travel penalty, so a timetable shift cannot lower the cost by pushing passengers out of the analysis window.
+
+The through-ticket is part-paid: the passenger pays part of the fare on the first bus and the balance on the connecting bus, provided they board it within the validity window $V$. Seats are not reserved.
 
 ## 2. Assumptions
 
-- Buses depart their origin terminals strictly on schedule (with shift $\Delta$ applied identically to both directions of the shifted route).
+- Buses depart their origin terminals strictly on schedule (with shift $\Delta$ applied identically to both directions of the shifted route) and keep published times only there: a connector leaves Borella as soon as it has served the stop, even when running early.
 - Each corridor's traffic congestion evolves independently on $\Delta t = 5\text{ min}$ slots as a time-inhomogeneous three-state Markov chain switching between off-peak and peak (`06:00-09:00` and `17:00-20:00`) transition matrices.
 - Local stop passenger arrivals follow a non-homogeneous Poisson process beginning $30\text{ min}$ prior to each leg's first trip, with uniform destinations over downstream stops and FIFO boarding up to $C = 80$.
-- Transfer passengers per feeder trip follow $m_f \sim \text{Poisson}(5.0)$, walk $w = 3.5\text{ min}$ at Borella, and wait in FIFO order for the next connecting bus with available seats.
-- Any in-window transfer passenger left unboarded after the final connector of the day incurs a fixed $60.0\text{ min}$ missed-last-connection wait penalty.
+- Transfer passengers per feeder trip follow $m_f \sim \text{Poisson}(5.0)$ and walk $w = 3.5\text{ min}$ at Borella. Local Borella passengers and transfer passengers board the connector first come, first served in one queue.
+- A passenger who misses the planned connector (timing) or is refused by a full bus (capacity) waits for the next connector only if it is scheduled within patience $P = 60\text{ min}$ and within ticket validity $V = 120\text{ min}$ of reaching Borella. Otherwise the passenger is lost to other transport and incurs the time already waited plus a $60\text{ min}$ alternative-travel penalty. Local passengers left behind by full buses follow the same patience rule.
 
 ## 3. Model equations
 
 ### Layer 1: Discrete-Time Markov Chain Traffic Model
 
-States $S_t \in \{0:\text{Free},\, 1:\text{Slow},\, 2:\text{Jammed}\}$ have car speeds $v = (30, 15, 5)\text{ km/h}$ and parametric transition matrix:
+States $S_t \in \{0:\text{Free},\, 1:\text{Slow},\, 2:\text{Jammed}\}$ have speeds $v = (36, 20, 10)\text{ km/h}$ when calibrated to the `cmb_traffic` corridor file (the default; synthetic fallback $v = (30, 15, 5)\text{ km/h}$) and parametric transition matrix:
 
 $$P(p) = \begin{pmatrix} 1 - p & 0.7p & 0.3p \\ 0.4(1 - p) & 0.4 & 0.2 + 0.4p \\ 0.1(1 - p) & 0.3(1 - p) & 0.6 + 0.4p \end{pmatrix}, \qquad p \in [0.01, 0.85]$$
 
-The stationary distribution satisfies $\pi^*(p) P(p) = \pi^*(p)$ and $\sum_k \pi^*_k(p) = 1$, giving theoretical mean speed $\bar{v}(p) = \sum_{k=0}^2 \pi^*_k(p) v_k$. Bisection solves $\bar{v}(p) = v_{\text{target}}$ within the achievable bracket $[\bar{v}(0.85), \bar{v}(0.01)]$. Bus cruising speed on leg $\ell$ in state $k$ is $\alpha_\ell v_k$.
+The stationary distribution satisfies $\pi^*(p) P(p) = \pi^*(p)$ and $\sum_k \pi^*_k(p) = 1$, giving theoretical mean speed $\bar{v}(p) = \sum_{k=0}^2 \pi^*_k(p) v_k$. Bisection solves $\bar{v}(p) = v_{\text{target}}$ within the achievable bracket $[\bar{v}(0.85), \bar{v}(0.01)]$, with targets equal to the mean speed of the six `cmb_traffic` corridors ($29.37\text{ km/h}$ off-peak, $24.10\text{ km/h}$ peak; synthetic fallback $22.0$ and $14.0\text{ km/h}$). The higher empirical state speeds keep the observed off-peak target inside the achievable bracket. Bus cruising speed on leg $\ell$ in state $k$ is $\alpha_\ell v_k$.
 
 ### Layer 2: Passenger Arrivals, Dwell Time, and Capacity
 
@@ -43,28 +45,39 @@ $$t_{\text{dwell},s} = \frac{t_{\text{door}} + t_{\text{alight}}\, a_s + t_{\tex
 
 ### Layer 3: Holding Policies and Objective Function
 
-Let $T_{c,\text{base}} = \max(T_{c,\text{sched}}, T_{c,\text{arr}} + t_{c,\text{dwell}})$ and $T_{c,\text{cap}} = T_{c,\text{sched}} + h$.
+Let $T_{c,\text{base}} = T_{c,\text{arr}} + t_{c,\text{dwell}}$ (the connector leaves as soon as it has served Borella) and $T_{c,\text{cap}} = T_{c,\text{base}} + h$.
 
 - **No holding (`none`):** $T_{c,\text{dep}} = T_{c,\text{base}}$.
 - **Schedule holding (`schedule`):** Hold up to $T_{c,\text{cap}}$ until all protected feeders $f \in \mathcal{F}_c$ have ready time $T_{f,\text{ready}} = T_{f,\text{arr}} + w$:
 
-$$T_{c,\text{dep}} = \begin{cases} T_{c,\text{base}} & \text{if } \mathcal{F}_c = \emptyset \text{ or } T_{c,\text{base}} \ge T_{c,\text{cap}} \\ \min\left(T_{c,\text{cap}},\, \max\left(T_{c,\text{base}},\, \max_{f \in \mathcal{F}_c} T_{f,\text{ready}}\right)\right) & \text{otherwise} \end{cases}$$
+$$T_{c,\text{dep}} = \min\left(T_{c,\text{cap}},\, \max\left(T_{c,\text{base}},\, \max_{f \in \mathcal{F}_c} T_{f,\text{ready}}\right)\right)$$
 
-- **Real-time ETA holding (`realtime`):** Restrict protection to feeders whose noisy ETA ready time $\hat{T}_{f,\text{ready}} = T_{f,\text{ready}} + \varepsilon_f$, $\varepsilon_f \sim \mathcal{N}(0, \sigma_{\text{eta}}^2)$ (Box-Muller), satisfies $\hat{T}_{f,\text{ready}} \le \max(T_{c,\text{base}}, T_{c,\text{cap}})$, skipping futile holds for uncatchable feeders.
+- **Real-time ETA holding (`realtime`):** Restrict protection to feeders whose noisy ETA ready time $\hat{T}_{f,\text{ready}} = T_{f,\text{ready}} + \varepsilon_f$, $\varepsilon_f \sim \mathcal{N}(0, \sigma_{\text{eta}}^2)$ (Box-Muller), satisfies $\hat{T}_{f,\text{ready}} \le T_{c,\text{cap}}$, skipping futile holds for uncatchable feeders.
+
+**Boarding and patience.** At departure, local Borella passengers and transfer passengers present at the stop board in arrival order up to $C - N_c$ places. A passenger left behind, or arriving after the planned connector has gone, at time $t$ waits only if
+
+$$T_{\text{next,sched}} - t \le P \quad\text{and}\quad T_{\text{next,sched}} - T_{f,\text{ready}} \le V$$
+
+and is otherwise lost to other transport.
 
 The daily expected equivalent passenger-minute cost is:
 
-$$J(h, \Delta) = w_{\text{wait}}\, \mathbb{E}\left[\sum_i W_i\right] + w_{\text{hold}}\, \mathbb{E}\left[\sum_b N_b \cdot \text{hold}_b\right]$$
+$$J(h, \Delta) = w_{\text{wait}}\, \mathbb{E}\left[\sum_i W_i + \pi_{\text{alt}} N_{\text{oow}}\right] + w_{\text{hold}}\, \mathbb{E}\left[\sum_b N_b \cdot \text{hold}_b\right]$$
+
+where $W_i$ is the Borella wait of in-window passenger $i$ (time waited plus $\pi_{\text{alt}}$ when lost) and $N_{\text{oow}}$ counts out-of-window passengers.
 
 | Symbol | Meaning | Units | Value / range | Source |
 |---|---|---|---|---|
 | $C$ | Bus passenger capacity | pax | 80 | LMT-GO bus specification |
 | $t_{\text{door}}, t_{\text{alight}}, t_{\text{board}}$ | Door dead time, alighting, boarding rates | s, s/pax | 12.0, 2.0, 3.0 | Literature typical urban transit dwell |
-| $v_0, v_1, v_2$ | Car speeds in Free, Slow, Jammed states | km/h | 30.0, 15.0, 5.0 | Model traffic parameterization |
+| $v_0, v_1, v_2$ | Speeds in Free, Slow, Jammed states | km/h | 36.0, 20.0, 10.0 (fallback 30.0, 15.0, 5.0) | Model traffic parameterization |
 | $\alpha_\ell$ | Leg bus speed scaling factor | - | Calibrated per leg | Bisection against published timetable |
 | $w$ | Borella interchange walking time | min | 3.5 (2.0-5.5 swept) | Placeholder pending field survey |
 | $m_f$ | Mean transfer passengers per feeder trip | pax/trip | 5.0 (3.0-8.0 swept) | Synthetic assumption |
-| $h$ | Maximum allowed Borella hold past schedule | min | 0.0 to 6.0 | Policy decision variable |
+| $P$ | Passenger patience after a missed or refused boarding | min | 60 (30-120 swept) | Assumption: about one off-peak headway |
+| $V$ | Part-paid ticket validity | min | 120 | Proposed fare-integration rule |
+| $\pi_{\text{alt}}$ | Alternative-travel penalty for lost passengers | min | 60 | Assumption |
+| $h$ | Maximum Borella hold beyond the connector's natural departure | min | 0.0 to 6.0 | Policy decision variable |
 | $\Delta$ | Route-level timetable shift | min | -30 to +30 | Policy decision variable |
 | $w_{\text{wait}}, w_{\text{hold}}$ | Objective penalty weights | - | 2.0, 1.0 | Policy objective weight |
 
@@ -79,14 +92,14 @@ $$J(h, \Delta) = w_{\text{wait}}\, \mathbb{E}\left[\sum_i W_i\right] + w_{\text{
 | Check | Expected | Obtained | Pass? |
 |---|---|---|---|
 | 1. Markov stationary state shares | $\max |\hat{\pi} - \pi^*| < 0.015$ ($N=50{,}000$) | Off-peak `0.0058`, Peak `0.0021` | Pass |
-| 2. Calibrated traffic speeds and leg runtimes | Relative error $< 2\%$ against targets/schedule | Off-peak speed `29.33 km/h` vs `29.37` (`0.12%`), Peak speed `24.11 km/h` vs `24.10` (`0.04%`); leg cal errs `0.01%-0.10%`, 80-day test delays `-1.50m` to `+0.82m` (inside 99% combined CI) | Pass |
-| 3. Zero-variance deterministic limit | $P(\text{miss}) = 0.0$ when $\text{offset} \ge w$, uncapped | `missed_total = 0`, `made = 10` (`P(miss) = 0.0`) | Pass |
-| 4. Closed-form Gaussian transfer probability | Matches $\Phi((s + h - w - (\mu_f - \mu_c))/\sqrt{\sigma_f^2+\sigma_c^2})$ in 95% CI | One-sided `h=0/2/4m`: `0.3120/0.5669/0.7993` vs `0.3085/0.5662/0.7977`; two-sided: `0.7043` vs `0.7021` ($N=12{,}000$) | Pass |
-| 5. Exact passenger conservation | Stop queues and transfer outcomes conserve 100% of generated pax | Exact stop queue and transfer partition conservation verified | Pass |
+| 2. Calibrated traffic speeds and leg runtimes | Relative error $< 2\%$ against targets/schedule | Off-peak speed `29.33 km/h` vs `29.37` (`0.12%`), Peak speed `24.11 km/h` vs `24.10` (`0.04%`); leg cal errs `0.01%-0.07%`, 80-day test delays `-1.50m` to `+0.96m` (inside 99% combined CI) | Pass |
+| 3. Zero-variance deterministic limit | $P(\text{miss}) = 0.0$ when $\text{offset} \ge w$, uncapped | `missed_total = 0`, `made = 10`, wait `0.5 min` | Pass |
+| 4. Closed-form Gaussian transfer probability (full event loop, 12,000 isolated pairs) | Matches $\Phi((s + h - w - (\mu_f - \mu_c))/\sqrt{\sigma_f^2+\sigma_c^2})$ in 99% CI | One-sided `h=0/2/4m`: `0.3120/0.5669/0.7993` vs `0.3085/0.5662/0.7977`; two-sided: `0.7043` vs `0.7021` ($N=12{,}000$) | Pass |
+| 5. Exact passenger conservation | Stop queues and transfer outcomes conserve 100% of generated pax | Stop queues: boarded + unserved + abandoned = generated; transfers: made + missed + out-of-window = generated, lost $\le$ missed | Pass |
 | 6. $h = 0$ limiting equivalence | `schedule(0)` and `realtime(0)` match `none` identically | All counts, wait times, and costs match identically | Pass |
 | 7. Capacity invariant and uncapped equivalence | Load $\le 80$ always; uncapped produces 0 capacity misses | Capped max load `80 <= 80`; uncapped `missed_capacity = 0` | Pass |
-| 8. CRN variance reduction | $\text{Var}_{\text{CRN}}(J(3)-J(0)) < \text{Var}_{\text{indep}}(J(3)-J(0))$ | Paired Var `352,745.6` vs Indep Var `4,696,326.8` (`92.5%` reduction) | Pass |
-| X2. Monte Carlo $O(R^{-1/2})$ scaling | Log-log OLS slope of 95% CI half-width near $-0.5$ | Log-log OLS slope `-0.475` over `R = 25..2000` | Pass |
+| 8. CRN variance reduction | $\text{Var}_{\text{CRN}}(J(3)-J(0)) < \text{Var}_{\text{indep}}(J(3)-J(0))$ | Paired Var `276,286.6` vs Indep Var `3,270,888.5` (`91.6%` reduction) | Pass |
+| X2. Monte Carlo $O(R^{-1/2})$ scaling | Log-log OLS slope of 95% CI half-width near $-0.5$ | Log-log OLS slope `-0.481` over `R = 25..2000` | Pass |
 
 ![Verification plot](figures/verification.png)
 

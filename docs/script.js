@@ -542,8 +542,33 @@
     convergenceTrace: []
   };
 
-  const canvas = $("mapCanvas");
-  const ctx = canvas.getContext("2d");
+  const researchCanvas = $("researchCanvas");
+  const researchCtx = researchCanvas.getContext("2d");
+  let researchHover = null;
+
+  const corridorMap = window.createCorridorMap({
+    container: $("corridorMap"),
+    routes: CFG.routes,
+    geo: window.CORRIDOR_GEO,
+    formatTime: formatMinutesToHhmm,
+    isPeakTime,
+    onBusHover: (tripId) => {
+      if (tripId === state.hoveredBusId) return;
+      state.hoveredBusId = tripId;
+      renderFrame();
+    },
+    onBusClick: (tripId) => {
+      state.selectedBusId = state.selectedBusId === tripId ? null : tripId;
+      populateDayTables();
+      renderFrame();
+    },
+    onBackgroundClick: () => {
+      if (!state.selectedBusId) return;
+      state.selectedBusId = null;
+      populateDayTables();
+      renderFrame();
+    }
+  });
 
   function updateSliderFill(el) {
     if (!el) return;
@@ -609,548 +634,274 @@
       `CM03 MAK-KAD ${a.CM03_MAK_to_KAD.toFixed(3)} | CM03 KAD-MAK ${a.CM03_KAD_to_MAK.toFixed(3)}`;
   }
 
-  function getBusPositionAtTime(bus, tMin) {
-    const tl = bus.stopTimeline;
-    if (tMin < tl[0].arrMin || tMin > tl[tl.length - 1].depMin) return null;
-
-    for (let i = 0; i < tl.length; i++) {
-      const stop = tl[i];
-      if (tMin >= stop.arrMin && tMin <= stop.depMin) {
-        const pt = CFG.mapCoordinates[stop.stopName];
-        const nextPt = i < tl.length - 1 ? CFG.mapCoordinates[tl[i + 1].stopName] : CFG.mapCoordinates[tl[i - 1].stopName];
-        const angleRad = i < tl.length - 1
-          ? Math.atan2(nextPt.y - pt.y, nextPt.x - pt.x)
-          : Math.atan2(pt.y - nextPt.y, pt.x - nextPt.x);
-        const isBorellaHold = stop.stopName.includes("Borella") && bus.borellaHoldMin > 0.05 && tMin > bus.borellaBaseDepMin;
-        return {
-          x: pt.x,
-          y: pt.y,
-          angleRad,
-          onboardPax: stop.onboardPax,
-          status: isBorellaHold ? "HOLDING" : "DWELL",
-          stopName: stop.stopName
-        };
-      }
-      if (i < tl.length - 1 && tMin > stop.depMin && tMin < tl[i + 1].arrMin) {
-        const nextStop = tl[i + 1];
-        const frac = (tMin - stop.depMin) / Math.max(0.1, nextStop.arrMin - stop.depMin);
-        const p1 = CFG.mapCoordinates[stop.stopName];
-        const p2 = CFG.mapCoordinates[nextStop.stopName];
-        return {
-          x: p1.x + (p2.x - p1.x) * frac,
-          y: p1.y + (p2.y - p1.y) * frac,
-          angleRad: Math.atan2(p2.y - p1.y, p2.x - p1.x),
-          onboardPax: stop.onboardPax,
-          status: "CRUISING",
-          stopName: `${stop.stopName} -> ${nextStop.stopName}`
-        };
+  function summariseDayAt(day, tNow) {
+    const summary = { activeBuses: 0, walkingPax: 0, madeSoFar: 0, missedSoFar: 0 };
+    if (!day) return summary;
+    for (const bus of day.buses) {
+      const tl = bus.stopTimeline;
+      if (tNow >= tl[0].arrMin && tNow <= tl[tl.length - 1].depMin) summary.activeBuses++;
+    }
+    for (const ev of day.transferEvents) {
+      if (tNow >= ev.readyMin) {
+        summary.madeSoFar += ev.madeCount;
+        summary.missedSoFar += ev.missedTimingCount + ev.missedCapCount;
+      } else if (tNow >= ev.startWalkMin) {
+        summary.walkingPax += ev.paxCount;
       }
     }
-    return null;
+    return summary;
   }
 
-  function drawMapBackground(tNow) {
-    const mapH = 420;
-    ctx.save();
-    ctx.fillStyle = "#09090b";
-    ctx.fillRect(0, 0, canvas.width, mapH);
+  function trafficStatesAt(day, tNow) {
+    const states = {};
+    for (const legKey of Object.keys(CFG.routes)) {
+      states[legKey] = day ? getTrafficStateAt(day.traffic[legKey], tNow) : 0;
+    }
+    return states;
+  }
 
-    ctx.strokeStyle = "#151519";
+  function resizeResearchCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    researchCanvas.width = Math.round(researchCanvas.clientWidth * dpr);
+    researchCanvas.height = Math.round(researchCanvas.clientHeight * dpr);
+    researchCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function niceAxisMax(maxValue) {
+    return Math.min(100, Math.max(40, Math.ceil((maxValue + 5) / 10) * 10));
+  }
+
+  function drawChartTitle(box, title, subtitle) {
+    const ctx = researchCtx;
+    ctx.fillStyle = readCssVar("--color-ink", "#fafafa");
+    ctx.font = "600 12.5px 'Space Grotesk', sans-serif";
+    ctx.fillText(title, box.x + 16, box.y + 24);
+    ctx.fillStyle = readCssVar("--color-muted", "#71717a");
+    ctx.font = "500 10.5px 'IBM Plex Mono', monospace";
+    ctx.fillText(subtitle, box.x + 16, box.y + 40);
+  }
+
+  function drawTooltipBox(x, y, lines, bounds) {
+    const ctx = researchCtx;
+    ctx.font = "600 11px 'IBM Plex Mono', monospace";
+    const width = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 16;
+    const height = lines.length * 16 + 10;
+    const left = Math.min(bounds.right - width, Math.max(bounds.left, x + 12));
+    const top = Math.max(bounds.top, y - height - 8);
+    ctx.fillStyle = readCssVar("--color-surface-elevated", "#222226");
+    ctx.strokeStyle = readCssVar("--color-border-strong", "#3f3f46");
     ctx.lineWidth = 1;
-    for (let gx = 0; gx <= canvas.width; gx += 32) {
+    ctx.fillRect(left, top, width, height);
+    ctx.strokeRect(left + 0.5, top + 0.5, width - 1, height - 1);
+    ctx.fillStyle = readCssVar("--color-ink", "#fafafa");
+    lines.forEach((line, i) => ctx.fillText(line, left + 8, top + 18 + i * 16));
+  }
+
+  function drawConvergenceChart(box, params) {
+    const ctx = researchCtx;
+    const trace = state.convergenceTrace;
+    const targetR = params.repTotal;
+    const ink = readCssVar("--color-ink", "#fafafa");
+    const muted = readCssVar("--color-muted", "#71717a");
+    const grid = readCssVar("--color-border", "#27272a");
+    const series = readCssVar("--route-cm01", "#1d9bd6");
+
+    drawChartTitle(box, "Missed transfers: running mean with 95% CI", `${trace.length} of ${targetR} Monte Carlo days completed`);
+
+    const plot = { left: box.x + 56, right: box.x + box.w - 24, top: box.y + 58, bottom: box.y + box.h - 40 };
+    const plotW = plot.right - plot.left;
+    const plotH = plot.bottom - plot.top;
+    const yMax = niceAxisMax(trace.reduce((m, pt) => Math.max(m, pt.mean + pt.ci), 0));
+    const yStep = yMax > 60 ? 20 : 10;
+    const xOf = (dayNum) => plot.left + (dayNum / Math.max(1, targetR)) * plotW;
+    const yOf = (pct) => plot.bottom - (Math.max(0, Math.min(yMax, pct)) / yMax) * plotH;
+
+    ctx.font = "500 10px 'IBM Plex Mono', monospace";
+    ctx.lineWidth = 1;
+    for (let pct = 0; pct <= yMax; pct += yStep) {
+      const y = Math.round(yOf(pct)) + 0.5;
+      ctx.strokeStyle = grid;
       ctx.beginPath();
-      ctx.moveTo(gx, 0);
-      ctx.lineTo(gx, mapH);
+      ctx.moveTo(plot.left, y);
+      ctx.lineTo(plot.right, y);
       ctx.stroke();
+      ctx.fillStyle = muted;
+      ctx.textAlign = "right";
+      ctx.fillText(`${pct}%`, plot.left - 8, y + 3);
     }
-    for (let gy = 0; gy <= mapH; gy += 32) {
-      ctx.beginPath();
-      ctx.moveTo(0, gy);
-      ctx.lineTo(canvas.width, gy);
-      ctx.stroke();
+    ctx.textAlign = "center";
+    for (let k = 0; k <= 4; k++) {
+      const dayNum = Math.round((k / 4) * targetR);
+      ctx.fillText(`${dayNum}`, xOf(dayNum), plot.bottom + 16);
     }
+    ctx.fillText("Days simulated (R)", plot.left + plotW / 2, plot.bottom + 32);
+    ctx.textAlign = "left";
 
-    ctx.fillStyle = "#0c1420";
-    ctx.strokeStyle = "#1e293b";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(106, 0);
-    ctx.lineTo(74, 145);
-    ctx.lineTo(54, 240);
-    ctx.lineTo(30, 420);
-    ctx.lineTo(0, 420);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.fillStyle = "#0f172a";
-    ctx.fillRect(512, 260, 64, 22);
-    ctx.strokeRect(512, 260, 64, 22);
-
-    ctx.fillStyle = "#475569";
-    ctx.font = "600 9.5px 'IBM Plex Mono', monospace";
-    ctx.fillText("INDIAN OCEAN", 8, 225);
-    ctx.fillText("DIYAWANNA", 516, 274);
-
-    const peakActive = isPeakTime(tNow);
-    ctx.fillStyle = peakActive ? "rgba(239, 68, 68, 0.14)" : "rgba(16, 185, 129, 0.12)";
-    ctx.strokeStyle = peakActive ? "#ef4444" : "#10b981";
-    ctx.lineWidth = 1;
-    ctx.fillRect(366, 14, 210, 24);
-    ctx.strokeRect(366, 14, 210, 24);
-    ctx.fillStyle = peakActive ? "#fca5a5" : "#6ee7b7";
-    ctx.font = "700 10px 'IBM Plex Mono', monospace";
-    ctx.fillText(peakActive ? "REGIME: PEAK CONGESTION" : "REGIME: OFF-PEAK FLOW", 376, 30);
-
-    ctx.restore();
-  }
-
-  function drawCorridorPolyline(stopNames, routeColor, trafficState) {
-    const stateColors = [
-      readCssVar("--state-free", "#10b981"),
-      readCssVar("--state-slow", "#f59e0b"),
-      readCssVar("--state-jammed", "#ef4444")
-    ];
-    const tracePath = () => {
-      ctx.beginPath();
-      stopNames.forEach((name, idx) => {
-        const pt = CFG.mapCoordinates[name];
-        if (idx === 0) ctx.moveTo(pt.x, pt.y);
-        else ctx.lineTo(pt.x, pt.y);
-      });
-    };
-
-    ctx.save();
-    ctx.lineCap = "butt";
-    ctx.lineJoin = "miter";
-
-    ctx.strokeStyle = stateColors[trafficState];
-    ctx.lineWidth = 18;
-    ctx.globalAlpha = 0.2;
-    tracePath();
-    ctx.stroke();
-    ctx.globalAlpha = 1.0;
-
-    ctx.strokeStyle = routeColor;
-    ctx.lineWidth = 10;
-    tracePath();
-    ctx.stroke();
-
-    ctx.strokeStyle = "#18181b";
-    ctx.lineWidth = 6;
-    tracePath();
-    ctx.stroke();
-
-    ctx.strokeStyle = "rgba(250, 250, 250, 0.5)";
-    ctx.lineWidth = 1.2;
-    ctx.setLineDash([6, 6]);
-    tracePath();
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.restore();
-  }
-
-  function drawTopDownBus(bus, pos, isCm01, isHold, isSelected, capacityPax) {
-    const laneOffset = 6.0;
-    const nx = -Math.sin(pos.angleRad) * laneOffset;
-    const ny = Math.cos(pos.angleRad) * laneOffset;
-    const bx = pos.x + nx;
-    const by = pos.y + ny;
-
-    state.renderedBuses.push({ tripId: bus.tripId, bx, by, bus, pos });
-
-    ctx.save();
-    ctx.translate(bx, by);
-    ctx.rotate(pos.angleRad);
-
-    if (isSelected) {
-      ctx.strokeStyle = "#fafafa";
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(-15, -8.5, 30, 17);
-    }
-
-    ctx.fillStyle = isHold
-      ? readCssVar("--color-warning", "#eab308")
-      : isCm01
-        ? readCssVar("--route-cm01", "#38bdf8")
-        : readCssVar("--route-cm03", "#a855f7");
-    ctx.strokeStyle = "#09090b";
-    ctx.lineWidth = 1.2;
-    ctx.fillRect(-12, -5.5, 24, 11);
-    ctx.strokeRect(-12, -5.5, 24, 11);
-
-    ctx.fillStyle = "#09090b";
-    ctx.fillRect(6, -3.5, 4, 7);
-    ctx.restore();
-
-    const capRatio = Math.min(1, pos.onboardPax / Math.max(1, capacityPax));
-    const fillCol = capRatio >= 0.98 ? "#f43f5e" : capRatio >= 0.7 ? "#eab308" : "#22c55e";
-
-    ctx.save();
-    ctx.fillStyle = "#121214";
-    ctx.strokeStyle = isSelected ? "#fafafa" : isHold ? "#eab308" : "#3f3f46";
-    ctx.lineWidth = 1;
-    ctx.fillRect(bx - 13, by - 22, 26, 12);
-    ctx.strokeRect(bx - 13, by - 22, 26, 12);
-
-    ctx.fillStyle = fillCol;
-    ctx.fillRect(bx - 10, by - 12.5, 20 * capRatio, 2);
-
-    ctx.fillStyle = "#fafafa";
-    ctx.font = "700 8px 'IBM Plex Mono', monospace";
-    ctx.fillText(`${pos.onboardPax}`, bx - 6, by - 14);
-
-    if (isHold) {
-      ctx.fillStyle = "#eab308";
-      ctx.font = "700 9px 'IBM Plex Mono', monospace";
-      ctx.fillText("HOLD", bx - 12, by - 25);
-    }
-    ctx.restore();
-  }
-
-  function drawInspectorOverlay(day, tNow, params) {
-    const ix = 16;
-    const iy = 14;
-    const iw = 264;
-    const ih = 112;
-
-    ctx.save();
-    ctx.fillStyle = "rgba(18, 18, 20, 0.96)";
-    ctx.strokeStyle = "#27272a";
-    ctx.lineWidth = 1;
-    ctx.fillRect(ix, iy, iw, ih);
-    ctx.strokeRect(ix, iy, iw, ih);
-
-    let targetBus = null;
-    let isPinned = false;
-    const activeId = state.hoveredBusId || state.selectedBusId;
-    if (day && activeId) {
-      targetBus = day.buses.find((b) => b.tripId === activeId) || null;
-      isPinned = Boolean(targetBus);
-    }
-    if (!targetBus && day) {
-      const conns = day.buses
-        .filter((b) => b.legKey === "CM01_MAK_to_FOR" || b.legKey === "CM03_MAK_to_KAD")
-        .sort((a, b) => a.borellaActualDepMin - b.borellaActualDepMin);
-      targetBus = conns.find((c) => c.borellaActualDepMin >= tNow - 5) || conns[0] || null;
-    }
-
-    ctx.fillStyle = "#fafafa";
-    ctx.font = "700 10px 'Space Grotesk', sans-serif";
-    ctx.fillText(isPinned ? "TRIP INSPECTOR [PINNED]" : "NEXT BORELLA CONNECTOR", ix + 10, iy + 18);
-
-    if (!targetBus) {
-      ctx.fillStyle = "#71717a";
-      ctx.font = "500 10px 'IBM Plex Mono', monospace";
-      ctx.fillText("No active trip selected", ix + 10, iy + 48);
-      ctx.restore();
+    if (trace.length < 2) {
+      ctx.fillStyle = muted;
+      ctx.font = "500 11px 'IBM Plex Sans', sans-serif";
+      const message = state.currentDay
+        ? `Day 1 preview: ${state.currentDay.missRateAllPct.toFixed(1)}% missed. Press +1 Day or Run All R to build the estimate.`
+        : "Run days to build the estimate.";
+      ctx.fillText(message, plot.left + 12, plot.top + plotH / 2);
       return;
     }
 
-    const pos = getBusPositionAtTime(targetBus, tNow);
-    const delayMin = targetBus.borellaArrMin - targetBus.borellaSchedMin;
-    const delaySign = delayMin >= 0 ? "+" : "";
-    const routeCol = targetBus.routeCode === "CM01" ? "#38bdf8" : "#a855f7";
+    ctx.fillStyle = series;
+    ctx.globalAlpha = 0.18;
+    ctx.beginPath();
+    trace.forEach((pt, i) => (i === 0 ? ctx.moveTo(xOf(pt.day), yOf(pt.mean + pt.ci)) : ctx.lineTo(xOf(pt.day), yOf(pt.mean + pt.ci))));
+    for (let i = trace.length - 1; i >= 0; i--) ctx.lineTo(xOf(trace[i].day), yOf(trace[i].mean - trace[i].ci));
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
 
-    ctx.fillStyle = routeCol;
-    ctx.fillRect(ix + 10, iy + 27, 4, 30);
+    ctx.strokeStyle = series;
+    ctx.lineWidth = 2;
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    trace.forEach((pt, i) => (i === 0 ? ctx.moveTo(xOf(pt.day), yOf(pt.mean)) : ctx.lineTo(xOf(pt.day), yOf(pt.mean))));
+    ctx.stroke();
 
-    ctx.fillStyle = "#fafafa";
+    const last = trace[trace.length - 1];
+    const lastX = xOf(last.day);
+    const lastY = yOf(last.mean);
+    ctx.fillStyle = readCssVar("--color-surface-subtle", "#18181b");
+    ctx.beginPath();
+    ctx.arc(lastX, lastY, 6, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.fillStyle = series;
+    ctx.beginPath();
+    ctx.arc(lastX, lastY, 4, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.fillStyle = ink;
     ctx.font = "700 11px 'IBM Plex Mono', monospace";
-    ctx.fillText(`${targetBus.tripId} (${targetBus.role})`, ix + 20, iy + 38);
+    const lastLabel = `${last.mean.toFixed(1)}% ± ${last.ci.toFixed(1)}`;
+    const labelWidth = ctx.measureText(lastLabel).width;
+    ctx.fillText(lastLabel, Math.min(lastX + 8, plot.right - labelWidth), lastY - 10);
 
-    ctx.fillStyle = "#a1a1aa";
-    ctx.font = "500 9.5px 'IBM Plex Mono', monospace";
-    const statusLine = pos ? `${pos.status}: ${pos.stopName}` : `${targetBus.originName} -> ${targetBus.destName}`;
-    ctx.fillText(statusLine.slice(0, 36), ix + 20, iy + 54);
-
-    ctx.strokeStyle = "#27272a";
-    ctx.beginPath();
-    ctx.moveTo(ix + 10, iy + 65);
-    ctx.lineTo(ix + iw - 10, iy + 65);
-    ctx.stroke();
-
-    ctx.fillStyle = "#d4d4d8";
-    ctx.font = "600 9.5px 'IBM Plex Mono', monospace";
-    ctx.fillText(`BORELLA: ${formatMinutesToHhmm(targetBus.borellaArrMin)} (${delaySign}${delayMin.toFixed(1)}m)`, ix + 10, iy + 82);
-    ctx.fillText(`HOLD: ${targetBus.borellaHoldMin.toFixed(1)}m | LOAD: ${targetBus.borellaOnboardPax}/${params.capacityPax}`, ix + 10, iy + 99);
-
-    ctx.restore();
+    if (researchHover && researchHover.x >= plot.left && researchHover.x <= plot.right && researchHover.y >= box.y && researchHover.y <= box.y + box.h) {
+      const hoveredDay = ((researchHover.x - plot.left) / plotW) * targetR;
+      const nearest = trace.reduce((best, pt) => (Math.abs(pt.day - hoveredDay) < Math.abs(best.day - hoveredDay) ? pt : best), trace[0]);
+      const hx = xOf(nearest.day);
+      const hy = yOf(nearest.mean);
+      ctx.strokeStyle = muted;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(Math.round(hx) + 0.5, plot.top);
+      ctx.lineTo(Math.round(hx) + 0.5, plot.bottom);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = series;
+      ctx.beginPath();
+      ctx.arc(hx, hy, 4, 0, 2 * Math.PI);
+      ctx.fill();
+      drawTooltipBox(hx, hy, [`Day ${nearest.day}`, `Mean ${nearest.mean.toFixed(2)}%`, `95% CI ± ${nearest.ci.toFixed(2)}`], {
+        left: box.x + 4,
+        right: box.x + box.w - 4,
+        top: box.y + 4
+      });
+    }
   }
 
-  function drawBorellaInset(day, tNow, params, activeHoldingBus) {
-    const bx = 16;
-    const by = 292;
-    const bw = 264;
-    const bh = 112;
+  function drawObjectiveBreakdown(box, day) {
+    const ctx = researchCtx;
+    const ink = readCssVar("--color-ink", "#fafafa");
+    const inkSecondary = readCssVar("--color-ink-secondary", "#d4d4d8");
+    const surface = readCssVar("--color-surface-subtle", "#18181b");
+    const hasHistory = state.waitCostHistory.length > 0;
+    const meanWait = hasHistory ? computeMeanAndCi(state.waitCostHistory).mean : (day ? day.waitCostTotal : 0);
+    const meanHold = hasHistory ? computeMeanAndCi(state.holdCostHistory).mean : (day ? day.holdCostTotal : 0);
+    const totalJ = meanWait + meanHold;
+    const { waitWeight, holdWeight } = CFG.objectiveWeights;
 
-    ctx.save();
-    ctx.fillStyle = "rgba(18, 18, 20, 0.96)";
-    ctx.strokeStyle = "#27272a";
-    ctx.lineWidth = 1;
-    ctx.fillRect(bx, by, bw, bh);
-    ctx.strokeRect(bx, by, bw, bh);
+    drawChartTitle(box, "Daily cost J (pax-min)", hasHistory ? `Mean over ${state.waitCostHistory.length} completed days` : "Day 1 preview");
 
-    ctx.fillStyle = "#fafafa";
-    ctx.font = "700 10px 'Space Grotesk', sans-serif";
-    ctx.fillText("BORELLA INTERCHANGE ZOOM", bx + 10, by + 18);
+    ctx.fillStyle = ink;
+    ctx.font = "700 30px 'Space Grotesk', sans-serif";
+    ctx.fillText(totalJ.toFixed(0), box.x + 16, box.y + 86);
 
-    const stopYmba = { x: bx + 54, y: by + 44 };
-    const stopSinger = { x: bx + 210, y: by + 44 };
-
-    ctx.strokeStyle = "#52525b";
-    ctx.setLineDash([4, 3]);
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(stopYmba.x, stopYmba.y);
-    ctx.lineTo(stopSinger.x, stopSinger.y);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    ctx.fillStyle = "#a855f7";
-    ctx.fillRect(stopYmba.x - 6, stopYmba.y - 6, 12, 12);
-    ctx.fillStyle = "#38bdf8";
-    ctx.fillRect(stopSinger.x - 6, stopSinger.y - 6, 12, 12);
-
-    ctx.fillStyle = "#a1a1aa";
-    ctx.font = "600 9.5px 'IBM Plex Mono', monospace";
-    ctx.fillText("YMBA (CM03)", bx + 18, by + 64);
-    ctx.fillText("SINGER (CM01)", bx + 172, by + 64);
-
-    if (day) {
-      for (const ev of day.transferEvents) {
-        if (tNow >= ev.startWalkMin && tNow < ev.readyMin) {
-          const frac = (tNow - ev.startWalkMin) / Math.max(0.2, ev.readyMin - ev.startWalkMin);
-          const x = ev.fromRoute === "CM03"
-            ? stopYmba.x + (stopSinger.x - stopYmba.x) * frac
-            : stopSinger.x + (stopYmba.x - stopSinger.x) * frac;
-          ctx.fillStyle = ev.madeCount > 0 ? "#22c55e" : "#f43f5e";
-          ctx.fillRect(x - 4, stopYmba.y - 4, 8, 8);
-        }
-      }
+    const barX = box.x + 16;
+    const barW = box.w - 40;
+    const barY = box.y + 104;
+    const barH = 14;
+    const parts = [
+      { label: `Transfer wait (${waitWeight.toFixed(1)}x)`, value: meanWait, color: readCssVar("--cost-wait", "#94a3b8") },
+      { label: `On-board hold (${holdWeight.toFixed(1)}x)`, value: meanHold, color: readCssVar("--color-warning", "#eab308") }
+    ];
+    ctx.fillStyle = readCssVar("--color-border", "#27272a");
+    ctx.fillRect(barX, barY, barW, barH);
+    let cursorX = barX;
+    for (const part of parts) {
+      const segW = totalJ > 0 ? (part.value / totalJ) * barW : 0;
+      if (segW <= 0) continue;
+      ctx.fillStyle = part.color;
+      ctx.fillRect(cursorX, barY, segW, barH);
+      cursorX += segW;
+      ctx.fillStyle = surface;
+      ctx.fillRect(cursorX, barY, 2, barH);
+      cursorX += 2;
     }
 
-    const barX = bx + 10;
-    const barY = by + 79;
-    const barW = bw - 20;
-    ctx.fillStyle = "#27272a";
-    ctx.fillRect(barX, barY, barW, 20);
+    parts.forEach((part, i) => {
+      const rowY = barY + barH + 26 + i * 22;
+      ctx.fillStyle = part.color;
+      ctx.fillRect(barX, rowY - 9, 10, 10);
+      ctx.fillStyle = inkSecondary;
+      ctx.font = "500 11px 'IBM Plex Sans', sans-serif";
+      ctx.fillText(part.label, barX + 18, rowY);
+      ctx.fillStyle = ink;
+      ctx.font = "600 11px 'IBM Plex Mono', monospace";
+      ctx.textAlign = "right";
+      const share = totalJ > 0 ? (100 * part.value) / totalJ : 0;
+      ctx.fillText(`${part.value.toFixed(0)}  (${share.toFixed(0)}%)`, barX + barW, rowY);
+      ctx.textAlign = "left";
+    });
+  }
 
-    if (activeHoldingBus) {
-      const elapsed = Math.max(0, tNow - activeHoldingBus.borellaBaseDepMin);
-      const maxH = Math.max(0.5, params.holdMaxMin);
-      const fillFrac = Math.min(1, elapsed / maxH);
-      ctx.fillStyle = "#eab308";
-      ctx.fillRect(barX, barY, barW * fillFrac, 20);
-      ctx.fillStyle = "#09090b";
-      ctx.font = "700 9.5px 'IBM Plex Mono', monospace";
-      ctx.fillText(`HOLDING ${activeHoldingBus.tripId}: ${elapsed.toFixed(1)}/${maxH.toFixed(1)}m`, barX + 8, barY + 13);
+  function drawResearchPanel(day, params) {
+    const w = researchCanvas.clientWidth;
+    const h = researchCanvas.clientHeight;
+    researchCtx.fillStyle = readCssVar("--color-surface-subtle", "#18181b");
+    researchCtx.fillRect(0, 0, w, h);
+    const isStacked = w < 720;
+    const splitX = Math.round(w * 0.64);
+    const chartBox = isStacked ? { x: 0, y: 0, w, h: h - 190 } : { x: 0, y: 0, w: splitX, h };
+    const costBox = isStacked ? { x: 0, y: h - 190, w, h: 190 } : { x: splitX, y: 0, w: w - splitX, h };
+    drawConvergenceChart(chartBox, params);
+    researchCtx.strokeStyle = readCssVar("--color-border", "#27272a");
+    researchCtx.lineWidth = 1;
+    researchCtx.beginPath();
+    if (isStacked) {
+      researchCtx.moveTo(16, costBox.y + 0.5);
+      researchCtx.lineTo(w - 16, costBox.y + 0.5);
     } else {
-      ctx.fillStyle = "#d4d4d8";
-      ctx.font = "600 9.5px 'IBM Plex Mono', monospace";
-      ctx.fillText(`WALK: ${params.walkTimeMin.toFixed(1)}m | NO ACTIVE HOLD`, barX + 8, barY + 13);
+      researchCtx.moveTo(splitX + 0.5, 16);
+      researchCtx.lineTo(splitX + 0.5, h - 16);
     }
-    ctx.restore();
+    researchCtx.stroke();
+    drawObjectiveBreakdown(costBox, day);
   }
 
-  function renderCanvasAndTables() {
-    const w = canvas.width;
-    const h = canvas.height;
-    const mapH = 420;
+  function renderFrame() {
     const params = readUIParams();
-
-    state.renderedBuses = [];
     const day = state.currentDay;
     const tNow = state.simClockMin;
+    const trafficStateByLeg = trafficStatesAt(day, tNow);
 
-    drawMapBackground(tNow);
+    corridorMap.render({ day, tNow, params, focusId: state.hoveredBusId || state.selectedBusId, trafficStateByLeg });
+    drawResearchPanel(day, params);
 
-    const st01 = day ? getTrafficStateAt(day.traffic.CM01_MAK_to_FOR, tNow) : 0;
-    const st03 = day ? getTrafficStateAt(day.traffic.CM03_MAK_to_KAD, tNow) : 0;
-
-    drawCorridorPolyline(CFG.routes.CM03_MAK_to_KAD.stops, readCssVar("--route-cm03", "#a855f7"), st03);
-    drawCorridorPolyline(CFG.routes.CM01_FOR_to_MAK.stops, readCssVar("--route-cm01", "#38bdf8"), st01);
-
-    const bSinger = CFG.mapCoordinates["Borella (Singer Mega)"];
-    const bYmba = CFG.mapCoordinates["Borella 02 (YMBA)"];
-    ctx.strokeStyle = "#eab308";
-    ctx.setLineDash([4, 3]);
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(bYmba.x, bYmba.y);
-    ctx.lineTo(bSinger.x, bSinger.y);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    for (const [name, pt] of Object.entries(CFG.mapCoordinates)) {
-      const sz = pt.isBorella ? 12 : 8;
-      ctx.fillStyle = pt.isBorella ? "#eab308" : "#121214";
-      ctx.strokeStyle = pt.isBorella ? "#fafafa" : "#a1a1aa";
-      ctx.lineWidth = pt.isBorella ? 2 : 1.5;
-      ctx.fillRect(pt.x - sz / 2, pt.y - sz / 2, sz, sz);
-      ctx.strokeRect(pt.x - sz / 2, pt.y - sz / 2, sz, sz);
-
-      ctx.fillStyle = pt.isBorella ? "#fde047" : "#e4e4e7";
-      ctx.font = pt.isBorella ? "700 10px 'Space Grotesk', sans-serif" : "600 9.5px 'IBM Plex Sans', sans-serif";
-      ctx.fillText(name, pt.x + (pt.ldx || -24), pt.y + (pt.ldy || 15));
-    }
-
-    let activeBusesCount = 0;
-    let walkingPaxCount = 0;
-    let madeSoFar = 0;
-    let missedSoFar = 0;
-    let activeHoldingBus = null;
-
-    if (day) {
-      for (const ev of day.transferEvents) {
-        if (tNow >= ev.readyMin) {
-          madeSoFar += ev.madeCount;
-          missedSoFar += ev.missedTimingCount + ev.missedCapCount;
-          if (tNow - ev.readyMin < 14) {
-            const ageFrac = (tNow - ev.readyMin) / 14;
-            const pulsePt = ev.fromRoute === "CM03" ? bSinger : bYmba;
-            const pulseY = pulsePt.y - 20 - ageFrac * 18;
-            ctx.save();
-            ctx.globalAlpha = 1.0 - ageFrac;
-            ctx.font = "700 10.5px 'IBM Plex Mono', monospace";
-            if (ev.madeCount > 0) {
-              ctx.fillStyle = "#22c55e";
-              ctx.fillText(`+${ev.madeCount} MADE`, pulsePt.x + 14, pulseY);
-            }
-            const mTot = ev.missedTimingCount + ev.missedCapCount;
-            if (mTot > 0) {
-              ctx.fillStyle = "#f43f5e";
-              ctx.fillText(`-${mTot} MISSED`, pulsePt.x + 14, pulseY + 13);
-            }
-            ctx.restore();
-          }
-        } else if (tNow >= ev.startWalkMin) {
-          walkingPaxCount += ev.paxCount;
-          const frac = (tNow - ev.startWalkMin) / Math.max(0.2, ev.readyMin - ev.startWalkMin);
-          const pStart = ev.fromRoute === "CM03" ? bYmba : bSinger;
-          const pEnd = ev.fromRoute === "CM03" ? bSinger : bYmba;
-          const px = pStart.x + (pEnd.x - pStart.x) * frac;
-          const py = pStart.y + (pEnd.y - pStart.y) * frac;
-          ctx.fillStyle = ev.madeCount > 0 ? "#22c55e" : "#f43f5e";
-          ctx.fillRect(px - 4, py - 4, 8, 8);
-        }
-      }
-
-      const focusId = state.hoveredBusId || state.selectedBusId;
-      for (const bus of day.buses) {
-        const pos = getBusPositionAtTime(bus, tNow);
-        if (!pos) continue;
-        activeBusesCount++;
-        const isHold = pos.status === "HOLDING";
-        if (isHold) activeHoldingBus = bus;
-        drawTopDownBus(bus, pos, bus.routeCode === "CM01", isHold, bus.tripId === focusId, params.capacityPax);
-      }
-    }
-
-    drawInspectorOverlay(day, tNow, params);
-    drawBorellaInset(day, tNow, params, activeHoldingBus);
-
-    ctx.fillStyle = "#121214";
-    ctx.fillRect(0, mapH, w, h - mapH);
-    ctx.strokeStyle = "#27272a";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(0, mapH);
-    ctx.lineTo(w, mapH);
-    ctx.stroke();
-
-    const plotL = 56;
-    const plotR = 570;
-    const plotT = mapH + 34;
-    const plotB = h - 22;
-    const plotW = plotR - plotL;
-    const plotH = plotB - plotT;
-
-    ctx.fillStyle = "#fafafa";
-    ctx.font = "700 11px 'Space Grotesk', sans-serif";
-    ctx.fillText("CONVERGENCE: MISSED TRANSFERS (% +/- 95% CI)", 18, mapH + 20);
-    ctx.strokeStyle = "#27272a";
-    ctx.strokeRect(plotL, plotT, plotW, plotH);
-
-    for (let pct = 0; pct <= 100; pct += 25) {
-      const y = plotB - (pct / 100) * plotH;
-      ctx.strokeStyle = "#1e1e22";
-      ctx.beginPath();
-      ctx.moveTo(plotL, y);
-      ctx.lineTo(plotR, y);
-      ctx.stroke();
-      ctx.fillStyle = "#71717a";
-      ctx.font = "10px 'IBM Plex Mono', monospace";
-      ctx.fillText(`${pct}%`, 20, y + 3);
-    }
-
-    const targetR = params.repTotal;
-    if (state.convergenceTrace.length > 1) {
-      ctx.fillStyle = "rgba(56, 189, 248, 0.16)";
-      ctx.beginPath();
-      state.convergenceTrace.forEach((pt, idx) => {
-        const x = plotL + (pt.day / targetR) * plotW;
-        const y = plotB - (Math.min(100, pt.mean + pt.ci) / 100) * plotH;
-        if (idx === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-      for (let idx = state.convergenceTrace.length - 1; idx >= 0; idx--) {
-        const pt = state.convergenceTrace[idx];
-        const x = plotL + (pt.day / targetR) * plotW;
-        const y = plotB - (Math.max(0, pt.mean - pt.ci) / 100) * plotH;
-        ctx.lineTo(x, y);
-      }
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.strokeStyle = "#38bdf8";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      state.convergenceTrace.forEach((pt, idx) => {
-        const x = plotL + (pt.day / targetR) * plotW;
-        const y = plotB - (pt.mean / 100) * plotH;
-        if (idx === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-      ctx.stroke();
-    }
-
-    const barAreaX = 602;
-    const barAreaW = w - barAreaX - 24;
-    ctx.fillStyle = "#fafafa";
-    ctx.font = "700 11px 'Space Grotesk', sans-serif";
-    ctx.fillText("OBJECTIVE J COST BREAKDOWN (PAX-MIN)", barAreaX, mapH + 20);
-
-    const meanWait = state.waitCostHistory.length > 0
-      ? computeMeanAndCi(state.waitCostHistory).mean
-      : (day ? day.waitCostTotal : 0);
-    const meanHold = state.holdCostHistory.length > 0
-      ? computeMeanAndCi(state.holdCostHistory).mean
-      : (day ? day.holdCostTotal : 0);
-    const totalJ = meanWait + meanHold;
-    const maxBar = Math.max(100, totalJ);
-
-    ctx.fillStyle = "#d4d4d8";
-    ctx.font = "600 10.5px 'IBM Plex Mono', monospace";
-    ctx.fillText(`TRANSFER WAIT COST (2.0x): ${meanWait.toFixed(0)}`, barAreaX, mapH + 46);
-    ctx.fillStyle = "#27272a";
-    ctx.fillRect(barAreaX, mapH + 54, barAreaW, 14);
-    ctx.fillStyle = "#38bdf8";
-    ctx.fillRect(barAreaX, mapH + 54, barAreaW * (meanWait / maxBar), 14);
-
-    ctx.fillStyle = "#d4d4d8";
-    ctx.fillText(`ON-BOARD HOLD COST (1.0x): ${meanHold.toFixed(0)}`, barAreaX, mapH + 92);
-    ctx.fillStyle = "#27272a";
-    ctx.fillRect(barAreaX, mapH + 100, barAreaW, 14);
-    ctx.fillStyle = "#eab308";
-    ctx.fillRect(barAreaX, mapH + 100, barAreaW * (meanHold / maxBar), 14);
-
-    ctx.fillStyle = "#a1a1aa";
-    ctx.fillText(`TOTAL DAILY OBJECTIVE J: ${totalJ.toFixed(0)} pax-min`, barAreaX, mapH + 136);
-
+    const { activeBuses, walkingPax, madeSoFar, missedSoFar } = summariseDayAt(day, tNow);
     const stateNames = ["FREE", "SLOW", "JAMMED"];
-    const dotColors = ["#10b981", "#f59e0b", "#ef4444"];
+    const dotColors = [
+      readCssVar("--state-free", "#0f9d6e"),
+      readCssVar("--state-slow", "#d6a10a"),
+      readCssVar("--state-jammed", "#e5484d")
+    ];
+    const st01 = trafficStateByLeg.CM01_MAK_to_FOR;
+    const st03 = trafficStateByLeg.CM03_MAK_to_KAD;
     $("simClock").textContent = `DAY ${state.dayIndex} | ${formatMinutesToHhmm(tNow)}`;
     $("timeScrubber").value = Math.round(tNow);
     $("scrubberLabel").textContent = formatMinutesToHhmm(tNow);
@@ -1173,15 +924,17 @@
     $("barTodayMissed").style.width = `${missPctToday.toFixed(1)}%`;
     $("subTodayMissed").textContent = `${missPctToday.toFixed(0)}% of ${settledToday} settled today`;
 
-    $("outActive").textContent = `${activeBusesCount} buses / ${walkingPaxCount} pax`;
-    $("barActive").style.width = `${Math.min(100, (activeBusesCount / 16) * 100).toFixed(1)}%`;
-    $("subActive").textContent = `${walkingPaxCount} pax walking at Borella`;
+    $("outActive").textContent = `${activeBuses} buses / ${walkingPax} pax`;
+    $("barActive").style.width = `${Math.min(100, (activeBuses / 16) * 100).toFixed(1)}%`;
+    $("subActive").textContent = `${walkingPax} pax walking at Borella`;
 
     if (state.missAllHistory.length > 0) {
       const mAll = computeMeanAndCi(state.missAllHistory);
       const mA = computeMeanAndCi(state.missAHistory);
       const mB = computeMeanAndCi(state.missBHistory);
       const obj = computeMeanAndCi(state.objHistory);
+      const meanWait = computeMeanAndCi(state.waitCostHistory).mean;
+      const meanHold = computeMeanAndCi(state.holdCostHistory).mean;
 
       $("outMissAll").textContent = `${mAll.mean.toFixed(1)}% +/- ${mAll.ci.toFixed(1)}%`;
       $("barMissAll").style.width = `${Math.min(100, mAll.mean).toFixed(1)}%`;
@@ -1208,6 +961,7 @@
       $("subObjJ").textContent = `Wait ${day.waitCostTotal.toFixed(0)} | Hold ${day.holdCostTotal.toFixed(0)}`;
     }
   }
+
 
   function populateDayTables() {
     const day = state.currentDay;
@@ -1236,7 +990,7 @@
         state.selectedBusId = c.tripId;
         state.simClockMin = Math.max(270, Math.min(1350, c.borellaArrMin));
         populateDayTables();
-        renderCanvasAndTables();
+        renderFrame();
       });
       tbody.appendChild(tr);
     }
@@ -1256,7 +1010,7 @@
         state.selectedBusId = ev.targetConnId || ev.feederId;
         state.simClockMin = Math.max(270, Math.min(1350, ev.readyMin - 1.0));
         populateDayTables();
-        renderCanvasAndTables();
+        renderFrame();
       });
       logList.appendChild(li);
     }
@@ -1281,7 +1035,7 @@
     if (state.simClockMin >= CFG.timeWindow.dayEndMin) {
       recordCompletedDay();
       if (state.dayIndex >= params.repTotal) {
-        renderCanvasAndTables();
+        renderFrame();
         pauseSimulation();
         $("startBtn").textContent = "Completed";
         $("startBtn").disabled = true;
@@ -1293,7 +1047,7 @@
       populateDayTables();
     }
 
-    renderCanvasAndTables();
+    renderFrame();
     state.animId = requestAnimationFrame(animationTick);
   }
 
@@ -1318,7 +1072,7 @@
       state.currentDay = simulateFullDay(params, state.rng);
       populateDayTables();
     }
-    renderCanvasAndTables();
+    renderFrame();
   }
 
   function runAllReplicationsInstant() {
@@ -1333,7 +1087,7 @@
     }
     state.simClockMin = 525;
     populateDayTables();
-    renderCanvasAndTables();
+    renderFrame();
     $("startBtn").textContent = "Completed";
     $("startBtn").disabled = true;
   }
@@ -1363,39 +1117,27 @@
     $("startBtn").disabled = false;
     $("startBtn").textContent = "Start";
     populateDayTables();
-    renderCanvasAndTables();
+    renderFrame();
   }
 
-  function hitTestBus(clientX, clientY) {
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / Math.max(1, rect.width);
-    const scaleY = canvas.height / Math.max(1, rect.height);
-    const x = (clientX - rect.left) * scaleX;
-    const y = (clientY - rect.top) * scaleY;
-    for (const item of state.renderedBuses) {
-      if (Math.abs(x - item.bx) <= 18 && Math.abs(y - item.by) <= 18) {
-        return item;
-      }
-    }
-    return null;
+  function redrawResearchPanelOnly() {
+    drawResearchPanel(state.currentDay, readUIParams());
   }
 
-  canvas.addEventListener("mousemove", (e) => {
-    const hit = hitTestBus(e.clientX, e.clientY);
-    const nextHover = hit ? hit.tripId : null;
-    canvas.style.cursor = hit ? "pointer" : "default";
-    if (nextHover !== state.hoveredBusId) {
-      state.hoveredBusId = nextHover;
-      renderCanvasAndTables();
-    }
+  researchCanvas.addEventListener("mousemove", (e) => {
+    researchHover = { x: e.offsetX, y: e.offsetY };
+    redrawResearchPanelOnly();
   });
 
-  canvas.addEventListener("click", (e) => {
-    const hit = hitTestBus(e.clientX, e.clientY);
-    state.selectedBusId = hit ? (state.selectedBusId === hit.tripId ? null : hit.tripId) : null;
-    populateDayTables();
-    renderCanvasAndTables();
+  researchCanvas.addEventListener("mouseleave", () => {
+    researchHover = null;
+    redrawResearchPanelOnly();
   });
+
+  new ResizeObserver(() => {
+    resizeResearchCanvas();
+    redrawResearchPanelOnly();
+  }).observe(researchCanvas);
 
   $("startBtn").addEventListener("click", () => (state.running ? pauseSimulation() : startSimulation()));
   $("resetBtn").addEventListener("click", resetSimulation);
@@ -1404,14 +1146,14 @@
 
   $("timeScrubber").addEventListener("input", (e) => {
     state.simClockMin = parseFloat(e.target.value);
-    renderCanvasAndTables();
+    renderFrame();
   });
 
   document.querySelectorAll(".time-jump-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       pauseSimulation();
       state.simClockMin = parseFloat(btn.dataset.jumpMin);
-      renderCanvasAndTables();
+      renderFrame();
     });
   });
 

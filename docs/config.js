@@ -149,23 +149,6 @@ window.SIM_CONFIG = {
     }
   },
 
-  mapCoordinates: {
-    "Colombo Fort": { x: 105, y: 155, ldx: -36, ldy: -16 },
-    "Pettah": { x: 165, y: 152, ldx: 10, ldy: -14 },
-    "Town Hall": { x: 245, y: 205, ldx: -32, ldy: 20 },
-    "Borella (Singer Mega)": { x: 350, y: 214, isBorella: true, ldx: -135, ldy: 16 },
-    "Rajagiriya": { x: 465, y: 226, ldx: -24, ldy: -16 },
-    "Sethsiripaya": { x: 590, y: 248, ldx: -26, ldy: -16 },
-    "Makumbura": { x: 845, y: 365, ldx: -36, ldy: -16 },
-    "Kadawatha": { x: 755, y: 38, ldx: -76, ldy: 4 },
-    "Kelaniya University": { x: 545, y: 84, ldx: -118, ldy: 4 },
-    "Cambell Park": { x: 368, y: 145, ldx: 14, ldy: 4 },
-    "Borella 02 (YMBA)": { x: 350, y: 184, isBorella: true, ldx: -124, ldy: -6 },
-    "Narahenpita Junction": { x: 344, y: 274, ldx: -136, ldy: 4 },
-    "Nawinna": { x: 510, y: 345, ldx: -24, ldy: 20 },
-    "Apeksha Hospital": { x: 615, y: 365, ldx: -42, ldy: 20 }
-  },
-
   timetables: {
     CM01_MAK_to_FOR: [
       { tripId: "CM01-MAK-01", times: ["05:30", "06:22", "06:37", "07:01", "07:20"] },
