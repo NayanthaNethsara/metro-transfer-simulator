@@ -75,7 +75,7 @@ where $w$ is the walk between the two Borella stops, $W_i$ is the wait at the co
 | Symbol | Meaning | Units | Value / range | Source |
 |---|---|---|---|---|
 | $C$ | Bus passenger capacity | pax | 80 | LMT-GO bus specification |
-| $t_{\text{door}}, t_{\text{alight}}, t_{\text{board}}$ | Door dead time, alighting, boarding rates | s, s/pax | 12.0, 2.0, 3.0 | Literature typical urban transit dwell |
+| $t_{\text{door}}, t_{\text{alight}}, t_{\text{board}}$ | Door dead time, alighting, boarding rates | s, s/pax | 12.0, 2.0, 3.0 | Assumption (typical urban bus values) |
 | $v_0, v_1, v_2$ | Speeds in Free, Slow, Jammed states | km/h | 36.0, 20.0, 10.0 (fallback 30.0, 15.0, 5.0) | Model traffic parameterization |
 | $\alpha_\ell$ | Leg bus speed scaling factor | - | Calibrated per leg | Bisection against published timetable |
 | $d$ | Stop-to-stop road distances | km | Per leg (see `docs/config.js`) | OSRM routing on OpenStreetMap between geocoded stops |
