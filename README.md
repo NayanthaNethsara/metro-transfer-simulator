@@ -54,7 +54,7 @@ Summary of the three-layer model:
 
 ## Verification
 
-All nine verification checks (Markov stationary shares, calibrated corridor speeds and leg runtimes, zero-variance limit, closed-form Gaussian transfer probability, exact passenger conservation, $h=0$ policy equivalence, capacity invariants, common-random-numbers variance reduction, and thinning arrival intensity) plus $O(R^{-1/2})$ Monte Carlo error scaling are implemented with explicit `assert` statements in `notebook/metro-transfer-simulator.ipynb`.
+All eleven verification checks (Markov stationary shares, calibrated corridor speeds and leg runtimes, zero-variance limit, closed-form Gaussian transfer probability, exact passenger conservation, $h=0$ policy equivalence, capacity invariants, common-random-numbers variance reduction, thinning arrival intensity, journey speed against the harmonic mean, and the exact-ETA limit of real-time holding) plus $O(R^{-1/2})$ Monte Carlo error scaling are implemented with explicit `assert` statements in `notebook/metro-transfer-simulator.ipynb`.
 
 ![Verification plot](figures/verification.png)
 

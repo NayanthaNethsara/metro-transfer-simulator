@@ -21,7 +21,7 @@ The labels in the screenshot: (1) scenario presets, (2) holding rule and its pla
 | Playback speed | Animation speed multiplier for the daily transit map | `0.5x` to `10.0x` | `2.5x` |
 | Monte Carlo days `R` | Total number of independent simulated days in the ensemble | `20` to `500 days` | `100 days` |
 | Random seed | Integer seed for deterministic reproducible runs | `>= 1` | `42` |
-| Day Clock Scrubber & Quick Jumps | Scrubs `04:30` to `22:30` or jumps directly to `08:00 AM PEAK`, `09:16 TIGHT B`, `14:46 TIGHT A`, or `17:46 PM PEAK` | `04:30` to `22:30` | `07:30` |
+| Day Clock Scrubber & Quick Jumps | Scrubs `04:30` to `22:30` or jumps directly to `08:00 AM PEAK`, `09:14 TIGHT B`, `14:39 TIGHT A`, or `17:46 PM PEAK` | `04:30` to `22:30` | `07:30` |
 | Start / Pause | Starts or pauses the animated day-by-day Monte Carlo run | - | - |
 | Run All R | Runs all remaining replications instantaneously to display converged 95% CIs | - | - |
 | +1 Day | Advances immediately by one simulated day and updates running CIs | - | - |

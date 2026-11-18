@@ -108,6 +108,8 @@ where $w$ is the walk between the two Borella stops, $W_i$ is the wait at the co
 | 7. Capacity invariant and uncapped equivalence | Load $\le 80$ always; uncapped produces 0 capacity misses | Capped max load `80 <= 80`; uncapped `missed_capacity = 0` | Pass |
 | 8. CRN variance reduction | $\text{Var}_{\text{CRN}}(J(3)-J(0)) < \text{Var}_{\text{indep}}(J(3)-J(0))$ | Paired Var `121,380` vs independent Var `4,505,606` (`97.3%` reduction) | Pass |
 | 9. Thinning arrival intensity | Mean daily peak and off-peak arrivals at a $0.4\text{ pax/min}$ test stop match $\int \lambda(t)\,dt$ within 3 SE ($400$ days) | Peak `195.0` vs `194.4`, off-peak `285.6` vs `285.6` | Pass |
+| 10. Journey speed vs harmonic mean | Long-run journey distance/time within $1\%$ of $\pi^* \cdot v$ and more than $10\%$ from the harmonic mean $1/\sum_i(\pi^*_i/v_i)$, since traffic states change with time, not distance | Off-peak `29.39` vs `29.37 km/h` (harmonic `23.37`), peak `24.04` vs `24.10 km/h` (harmonic `18.00`); 20 km journeys average `28.00` and `22.52 km/h` | Pass |
+| 11. Exact-ETA limit of real-time holding (X3) | With $\sigma = 0$, real-time hold $\le$ schedule hold and identical connections made | `400` day-direction cases ($h = 3, 10$ min): no longer hold, same connections, mean `131` pax-min of hold saved | Pass |
 | X2. Monte Carlo $O(R^{-1/2})$ scaling | Log-log OLS slope of 95% CI half-width near $-0.5$ | Log-log OLS slope `-0.551` over `R = 25..2000` | Pass |
 
 ![Verification plot](figures/verification.png)
