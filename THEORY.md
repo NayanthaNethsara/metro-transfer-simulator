@@ -89,6 +89,13 @@ where $w$ is the walk between the two Borella stops, $W_i$ is the wait at the co
 | $\Delta$ | Route-level timetable shift | min | -30 to +30 | Policy decision variable |
 | $w_{\text{wait}}, w_{\text{hold}}$ | Objective penalty weights | - | 2.0, 1.0 | Policy objective weight |
 
+### Fleet, Timing Point and Extra Bus
+
+- **Buses needed by a timetable:** a bus can run trip $j$ after trip $i$ if $j$ starts at the terminal where $i$ ends and $T_{j,\text{dep}} \ge T_{i,\text{arr}} + \tau$, with turnaround $\tau = 10$ min. The fewest buses equals the number of trips minus a maximum matching on this graph (minimum path cover). CM01 and CM03 buses do not swap routes. The published timetables need 5 CM01 and 6 CM03 buses; a whole-route shift keeps every turnaround, so it needs the same number.
+- **Borella timing point:** a connector never leaves Borella before its published time, $T_{c,\text{base}} = \max(T_{c,\text{sched}}, T_{c,\text{arr}} + t_{c,\text{dwell}})$. Waiting for the published time is charged to on-board passengers as hold time in $J$.
+- **One extra bus:** round trips from Makumbura with the route's scheduled run times and $\tau = 10$ min, until the next Makumbura departure would be after the route's last one. The first departure (5-min grid) minimises $\sum_k h_k^2$ over the terminal headways (a random passenger waits $\sum h_k^2 / 2\sum h_k$ on average). Through demand stays fixed: extra feeder trips carry no through passengers.
+- **Turnaround reliability:** a planned turnaround is late when the simulated terminal arrival plus $\tau$ is after the next trip's published departure (Borella holding not included, so a lower bound).
+
 ## 4. Numerical method
 
 - **Next-event time advance:** Borella transfer events (`FEEDER_READY` with priority `0` and `CONNECTOR_CHECK` with priority `1`) are processed chronologically via a binary min-heap (`heapq`) with monotonic sequence tie-breaking.
@@ -110,6 +117,10 @@ where $w$ is the walk between the two Borella stops, $W_i$ is the wait at the co
 | 9. Thinning arrival intensity | Mean daily peak and off-peak arrivals at a $0.4\text{ pax/min}$ test stop match $\int \lambda(t)\,dt$ within 3 SE ($400$ days) | Peak `195.0` vs `194.4`, off-peak `285.6` vs `285.6` | Pass |
 | 10. Journey speed vs harmonic mean | Long-run journey distance/time within $1\%$ of $\pi^* \cdot v$ and more than $10\%$ from the harmonic mean $1/\sum_i(\pi^*_i/v_i)$, since traffic states change with time, not distance | Off-peak `29.39` vs `29.37 km/h` (harmonic `23.37`), peak `24.04` vs `24.10 km/h` (harmonic `18.00`); 20 km journeys average `28.00` and `22.52 km/h` | Pass |
 | 11. Exact-ETA limit of real-time holding (X3) | With $\sigma = 0$, real-time hold $\le$ schedule hold and identical connections made | `400` day-direction cases ($h = 3, 10$ min): no longer hold, same connections, mean `131` pax-min of hold saved | Pass |
+| 12. Fleet requirement | Published timetable bus count equals the count for every whole-route shift from $-30$ to $+30$ min | `5` CM01 + `6` CM03 buses for all shifts | Pass |
+| 13. Extra-bus timetable | At most one more bus, every turnaround $\ge 10$ min | CM01: 4 extra trips on `6` buses; CM03: 6 extra trips on `7` buses; minimum turnaround `10` min | Pass |
+| 14. Isolation of random draws | Extra Pettah-Makumbura trips leave Kadawatha-Pettah results identical | Identical for `none` and `realtime` ($h = 3$) | Pass |
+| 15. Fixed demand | Through passengers per day unchanged when trips are added | Identical for both groups | Pass |
 | X2. Monte Carlo $O(R^{-1/2})$ scaling | Log-log OLS slope of 95% CI half-width near $-0.5$ | Log-log OLS slope `-0.551` over `R = 25..2000` | Pass |
 
 ![Verification plot](figures/verification.png)

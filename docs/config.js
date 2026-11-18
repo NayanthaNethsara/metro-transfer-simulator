@@ -61,12 +61,12 @@ window.SIM_CONFIG = {
         holdMaxMin: 0.0,
         shiftRoute: "CM03",
         shiftMin: 0,
-        missAllPct: 14.94,
-        missAllCi95: 0.54,
-        missAPct: 21.32,
-        missBPct: 10.25,
-        objectiveJ: 10185.3,
-        objectiveJCi95: 94.4
+        missAllPct: 15.05,
+        missAllCi95: 0.56,
+        missAPct: 21.99,
+        missBPct: 10.07,
+        objectiveJ: 10255.9,
+        objectiveJCi95: 94.1
       },
       {
         label: "Hold only, schedule h = 3 min",
@@ -74,12 +74,12 @@ window.SIM_CONFIG = {
         holdMaxMin: 3.0,
         shiftRoute: "CM03",
         shiftMin: 0,
-        missAllPct: 12.36,
-        missAllCi95: 0.50,
-        missAPct: 17.12,
-        missBPct: 8.88,
-        objectiveJ: 10098.3,
-        objectiveJCi95: 95.2
+        missAllPct: 12.48,
+        missAllCi95: 0.52,
+        missAPct: 17.58,
+        missBPct: 8.85,
+        objectiveJ: 10171.3,
+        objectiveJCi95: 94.2
       },
       {
         label: "Hold only, real-time h = 3 min",
@@ -87,25 +87,25 @@ window.SIM_CONFIG = {
         holdMaxMin: 3.0,
         shiftRoute: "CM03",
         shiftMin: 0,
-        missAllPct: 12.67,
-        missAllCi95: 0.50,
-        missAPct: 17.57,
-        missBPct: 9.09,
-        objectiveJ: 9953.0,
-        objectiveJCi95: 93.6
+        missAllPct: 12.75,
+        missAllCi95: 0.53,
+        missAPct: 18.01,
+        missBPct: 8.99,
+        objectiveJ: 10015.9,
+        objectiveJCi95: 92.7
       },
       {
-        label: "Joint, real-time h = 10 min, CM03 -10 min",
+        label: "Joint, real-time h = 10 min, CM01 +10 min",
         policy: "realtime",
         holdMaxMin: 10.0,
-        shiftRoute: "CM03",
-        shiftMin: -10,
-        missAllPct: 11.07,
+        shiftRoute: "CM01",
+        shiftMin: 10,
+        missAllPct: 10.98,
         missAllCi95: 0.50,
-        missAPct: 9.43,
-        missBPct: 12.27,
-        objectiveJ: 9388.3,
-        objectiveJCi95: 90.6
+        missAPct: 9.50,
+        missBPct: 12.09,
+        objectiveJ: 9389.0,
+        objectiveJCi95: 91.7
       }
     ]
   },

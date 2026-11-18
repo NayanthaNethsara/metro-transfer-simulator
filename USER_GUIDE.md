@@ -10,7 +10,7 @@ The labels in the screenshot: (1) scenario presets, (2) holding rule and its pla
 
 | Control | What it does | Range | Default |
 |---|---|---|---|
-| 01. Scenario Presets | Loads `01. BASELINE` (`none`, `h=0`), `02. HOLD 3M` (`schedule`, `h=3`), or `03. RT + SHIFT` (`realtime`, `h=10`, CM03 `-10 min`) | 3 presets | `02. HOLD 3M` |
+| 01. Scenario Presets | Loads `01. BASELINE` (`none`, `h=0`), `02. HOLD 3M` (`schedule`, `h=3`), or `03. RT + SHIFT` (`realtime`, `h=10`, CM01 `+10 min`) | 3 presets | `02. HOLD 3M` |
 | Borella holding rule | Segmented toggle for `NONE`, `SCHEDULE` (wait up to `h` past the connector's natural departure for every linked feeder), or `REAL-TIME` (wait only for feeders whose noisy ETA says they can make it) | 3 modes | `SCHEDULE` |
 | Max hold time `h` | Maximum Borella hold past the connector's natural departure (arrival + dwell) | `0.0` to `10.0 min` (step `0.5`) | `3.0 min` |
 | Timetable shift route | Segmented toggle choosing `CM03 (KAD-MAK)` or `CM01 (FOR-MAK)` | 2 routes | `CM03` |
@@ -45,7 +45,7 @@ The labels in the screenshot: (1) scenario presets, (2) holding rule and its pla
 
 The browser engine (`docs/sim-engine.js`) is a direct port of the notebook model: the same cleaned timetables, OpenStreetMap road distances, Borella placement by road distance, thinning arrivals, dwell formula, Markov traffic calibration, first-come-first-served boarding at Borella, patience and ticket-validity rules, holding policies and objective. It uses the per-leg speed factors (`alpha`) calibrated in the notebook rather than recalibrating. The random number generators differ (`mulberry32` in the browser, NumPy PCG64 in the notebook), so individual days differ but ensemble means agree.
 
-`docs/config.js` stores four notebook reference results (R = 1000 days): Baseline `14.94 +/- 0.54%`, Hold only schedule `h = 3` `12.36 +/- 0.50%`, Hold only real-time `h = 3` `12.67 +/- 0.50%`, and Joint real-time `h = 10`, CM03 `-10 min` `11.07 +/- 0.50%`. When the current settings match one of them (with default walk time, capacity and peak speed) and at least 300 days have run, the Mean Missed card shows the difference and whether it is within the stated tolerance of `+/- 2.0` percentage points. Running the browser engine for 1000 days on three seeds gave differences of `+0.1` to `+0.8` points for all four scenarios, in line with the spread between the notebook's own seed sets.
+`docs/config.js` stores four notebook reference results (R = 1000 days): Baseline `15.05 +/- 0.56%`, Hold only schedule `h = 3` `12.48 +/- 0.52%`, Hold only real-time `h = 3` `12.75 +/- 0.53%`, and Joint real-time `h = 10`, CM01 `+10 min` `10.98 +/- 0.50%`. When the current settings match one of them (with default walk time, capacity and peak speed) and at least 300 days have run, the Mean Missed card shows the difference and whether it is within the stated tolerance of `+/- 2.0` percentage points. Running the browser engine for 1000 days on three seeds gave differences of `-0.3` to `+0.6` points for all four scenarios, in line with the spread between the notebook's own seed sets.
 
 ## Limitations
 
