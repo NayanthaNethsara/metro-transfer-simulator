@@ -12,6 +12,11 @@ General rules and technical conventions for working in the Metro Transfer Simula
 - Keep one color language per visual signal. Do not reuse the same palette for two different meanings in the same view.
 - Strictly no emojis anywhere in responses, comments, or code.
 
+## Change Requests
+
+- Do not agree with every requested change. First judge whether it is needed (correctness, requirements) or only optional polish, and what complexity it adds.
+- Say plainly when a change is unnecessary, low-value or overcomplicated, and recommend the simpler option or no change.
+
 ## Git Conventions
 
 - Do not commit or push. The user reviews and commits changes themselves.
