@@ -9,517 +9,8 @@
     return val || fallback;
   }
 
-  function createSeededRng(seedInt) {
-    let a = seedInt >>> 0;
-    return function () {
-      a |= 0;
-      a = (a + 0x6D2B79F5) | 0;
-      let t = Math.imul(a ^ (a >>> 15), 1 | a);
-      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-
-  function parseHhmmToMinutes(hhmmStr) {
-    const parts = hhmmStr.trim().split(":");
-    return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
-  }
-
-  function formatMinutesToHhmm(totalMin) {
-    if (!Number.isFinite(totalMin)) return "--:--";
-    const rounded = Math.max(0, Math.round(totalMin));
-    const hh = String(Math.floor(rounded / 60) % 24).padStart(2, "0");
-    const mm = String(rounded % 60).padStart(2, "0");
-    return `${hh}:${mm}`;
-  }
-
-  function isPeakTime(timeMin) {
-    return CFG.timeWindow.peakWindowsMin.some(([start, end]) => timeMin >= start && timeMin < end);
-  }
-
-  function buildParametricTransitionMatrix(jamParam) {
-    const p = Number(jamParam);
-    return [
-      [1.0 - p, 0.7 * p, 0.3 * p],
-      [0.4 * (1.0 - p), 0.4, 0.2 + 0.4 * p],
-      [0.1 * (1.0 - p), 0.3 * (1.0 - p), 0.6 + 0.4 * p]
-    ];
-  }
-
-  function computeStationaryDistribution(matrix) {
-    let pi = [1 / 3, 1 / 3, 1 / 3];
-    for (let iter = 0; iter < 60; iter++) {
-      const next = [0, 0, 0];
-      for (let i = 0; i < 3; i++) {
-        for (let j = 0; j < 3; j++) {
-          next[j] += pi[i] * matrix[i][j];
-        }
-      }
-      pi = next;
-    }
-    return pi;
-  }
-
-  function expectedSpeedForJamParam(jamParam) {
-    const pi = computeStationaryDistribution(buildParametricTransitionMatrix(jamParam));
-    const speeds = CFG.trafficModel.stateSpeedsKmph;
-    return pi[0] * speeds[0] + pi[1] * speeds[1] + pi[2] * speeds[2];
-  }
-
-  function calibrateJamParamBisection(targetSpeedKmph) {
-    let [low, high] = CFG.trafficModel.jamParamBounds;
-    const vMax = expectedSpeedForJamParam(low);
-    const vMin = expectedSpeedForJamParam(high);
-    const clampedTarget = Math.max(vMin, Math.min(vMax, targetSpeedKmph));
-    for (let i = 0; i < 40; i++) {
-      const mid = 0.5 * (low + high);
-      if (expectedSpeedForJamParam(mid) > clampedTarget) low = mid;
-      else high = mid;
-    }
-    return 0.5 * (low + high);
-  }
-
-  function sampleDiscreteState(rowProbs, uniformDraw) {
-    let cum = 0.0;
-    for (let i = 0; i < rowProbs.length; i++) {
-      cum += rowProbs[i];
-      if (uniformDraw <= cum) return i;
-    }
-    return rowProbs.length - 1;
-  }
-
-  function sampleExponentialInterarrival(ratePerMin, rng) {
-    const u = Math.min(rng(), 1.0 - 1e-12);
-    return -Math.log(1.0 - u) / ratePerMin;
-  }
-
-  function samplePoissonKnuth(meanVal, rng) {
-    const limit = Math.exp(-meanVal);
-    let k = 0;
-    let prod = 1.0;
-    while (true) {
-      k += 1;
-      prod *= rng();
-      if (prod <= limit) return k - 1;
-    }
-  }
-
-  function sampleStandardNormalBoxMuller(rng) {
-    const u1 = Math.max(1e-12, 1.0 - rng());
-    const u2 = rng();
-    return Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
-  }
-
-  function generateDailyTrafficGrid(rng, matrixOffpeak, matrixPeak) {
-    const { dayStartMin, dayEndMin, trafficStepMin } = CFG.timeWindow;
-    const nSlots = Math.floor((dayEndMin - dayStartMin) / trafficStepMin) + 20;
-    const states = new Array(nSlots);
-    let state = 0;
-    for (let slot = 0; slot < nSlots; slot++) {
-      states[slot] = state;
-      const tMin = dayStartMin + slot * trafficStepMin;
-      const mat = isPeakTime(tMin) ? matrixPeak : matrixOffpeak;
-      state = sampleDiscreteState(mat[state], rng());
-    }
-    return states;
-  }
-
-  function getTrafficStateAt(trafficStates, timeMin) {
-    const { dayStartMin, trafficStepMin } = CFG.timeWindow;
-    const slot = Math.max(0, Math.min(trafficStates.length - 1, Math.floor((timeMin - dayStartMin) / trafficStepMin)));
-    return trafficStates[slot];
-  }
-
-  function travelSegmentMinutes(startTimeMin, distanceKm, trafficStates, alpha) {
-    const { dayStartMin, trafficStepMin } = CFG.timeWindow;
-    const speeds = CFG.trafficModel.stateSpeedsKmph;
-    let remainingKm = Number(distanceKm);
-    let currentTimeMin = Number(startTimeMin);
-    while (remainingKm > 1e-9) {
-      let slot = Math.max(0, Math.floor((currentTimeMin - dayStartMin) / trafficStepMin));
-      slot = Math.min(slot, trafficStates.length - 1);
-      const slotEndMin = dayStartMin + (slot + 1) * trafficStepMin;
-      const availMin = Math.max(0.02, slotEndMin - currentTimeMin);
-      const speedKmPerMin = (alpha * speeds[trafficStates[slot]]) / 60.0;
-      const maxDistKm = speedKmPerMin * availMin;
-      if (maxDistKm >= remainingKm) {
-        currentTimeMin += remainingKm / speedKmPerMin;
-        remainingKm = 0.0;
-      } else {
-        remainingKm -= maxDistKm;
-        currentTimeMin = slotEndMin;
-      }
-    }
-    return currentTimeMin - startTimeMin;
-  }
-
-  function buildScheduledLegTrips(legKey, shiftMin) {
-    const rawTrips = CFG.timetables[legKey];
-    const frac = CFG.busParameters.borellaInterpolationFraction;
-    return rawTrips.map((row) => {
-      const mins = row.times.map((t) => parseHhmmToMinutes(t) + shiftMin);
-      let prevMin, nextMin;
-      if (legKey === "CM01_MAK_to_FOR" || legKey === "CM01_FOR_to_MAK") {
-        prevMin = mins[2];
-        nextMin = mins[3];
-      } else if (legKey === "CM03_MAK_to_KAD") {
-        prevMin = mins[3];
-        nextMin = mins[4];
-      } else {
-        prevMin = mins[2];
-        nextMin = mins[3];
-      }
-      return {
-        tripId: row.tripId,
-        originSchedMin: mins[0],
-        borellaSchedMin: prevMin + frac * (nextMin - prevMin),
-        destSchedMin: mins[mins.length - 1]
-      };
-    });
-  }
-
-  function generateStopArrivals(legCfg, firstOriginMin, rng) {
-    const nStops = legCfg.stops.length;
-    const queues = Array.from({ length: nStops }, () => []);
-    const { dayStartMin, dayEndMin, preDepartureAccumMin } = CFG.timeWindow;
-    const startWindowMin = Math.max(dayStartMin, firstOriginMin - (preDepartureAccumMin || 30));
-    for (let s = 0; s < nStops - 1; s++) {
-      const baseRate = legCfg.baseArrivalRatePaxPerMin[s];
-      if (baseRate <= 0) continue;
-      let t = startWindowMin;
-      while (t < dayEndMin) {
-        const rate = baseRate * (isPeakTime(t) ? 1.35 : 0.85);
-        t += sampleExponentialInterarrival(rate, rng);
-        if (t < dayEndMin) {
-          const nDown = nStops - 1 - s;
-          const destIdx = s + 1 + Math.min(Math.floor(rng() * nDown), nDown - 1);
-          queues[s].push({ arrMin: t, destIdx });
-        }
-      }
-    }
-    return queues;
-  }
-
-  function simulateLegDay(legKey, shiftMin, trafficStates, rng, capacityPax, alphaOverride) {
-    const legCfg = CFG.routes[legKey];
-    const schedTrips = buildScheduledLegTrips(legKey, shiftMin);
-    const firstOriginMin = schedTrips[0].originSchedMin;
-    const queues = generateStopArrivals(legCfg, firstOriginMin, rng);
-    const cursors = new Array(legCfg.stops.length).fill(0);
-    const alpha = alphaOverride !== undefined ? alphaOverride : (state.legSpeedAlphas[legKey] || 0.9);
-    const { doorTimeSec, alightTimeSec, boardTimeSec, etaNoiseSdMin } = CFG.busParameters;
-    const borellaIdx = legCfg.borellaStopIndex;
-
-    return schedTrips.map((trip) => {
-      let tCurr = trip.originSchedMin;
-      let onboardDests = [];
-      let leftBehindTotal = 0;
-      const stopTimeline = [];
-      let borellaArrMin = tCurr;
-      let borellaDwellMin = 0.5;
-      let borellaOnboardPax = 0;
-
-      for (let s = 0; s < legCfg.stops.length; s++) {
-        if (s > 0) {
-          const dKm = legCfg.segmentDistancesKm[s - 1];
-          tCurr += travelSegmentMinutes(tCurr, dKm, trafficStates, alpha);
-        }
-        const arrAtStop = tCurr;
-        let alighting = 0;
-        const remaining = [];
-        for (const d of onboardDests) {
-          if (d === s) alighting++;
-          else remaining.push(d);
-        }
-        onboardDests = remaining;
-
-        const q = queues[s];
-        let c = cursors[s];
-        let waiting = 0;
-        while (c + waiting < q.length && q[c + waiting].arrMin <= tCurr) {
-          waiting++;
-        }
-        const freeSeats = Math.max(0, capacityPax - onboardDests.length);
-        const boarding = Math.min(waiting, freeSeats);
-        leftBehindTotal += waiting - boarding;
-        for (let k = 0; k < boarding; k++) {
-          onboardDests.push(q[c + k].destIdx);
-        }
-        cursors[s] = c + boarding;
-
-        const dwellMin = (doorTimeSec + alightTimeSec * alighting + boardTimeSec * boarding) / 60.0;
-        if (s === borellaIdx) {
-          borellaArrMin = arrAtStop;
-          borellaDwellMin = dwellMin;
-          borellaOnboardPax = onboardDests.length;
-        }
-        tCurr += dwellMin;
-        stopTimeline.push({
-          stopName: legCfg.stops[s],
-          arrMin: arrAtStop,
-          depMin: tCurr,
-          onboardPax: onboardDests.length
-        });
-      }
-
-      return {
-        legKey,
-        routeCode: legCfg.code,
-        role: legCfg.role,
-        originName: legCfg.stops[0],
-        destName: legCfg.stops[legCfg.stops.length - 1],
-        tripId: trip.tripId,
-        originSchedMin: trip.originSchedMin,
-        borellaSchedMin: trip.borellaSchedMin,
-        borellaArrMin,
-        borellaDwellMin,
-        borellaBaseDepMin: Math.max(trip.borellaSchedMin, borellaArrMin + borellaDwellMin),
-        borellaActualDepMin: Math.max(trip.borellaSchedMin, borellaArrMin + borellaDwellMin),
-        borellaHoldMin: 0,
-        borellaOnboardPax,
-        leftBehindTotal,
-        transferPaxCount: samplePoissonKnuth(CFG.busParameters.transferMeanPax, rng),
-        etaErrMin: (etaNoiseSdMin || 1.0) * sampleStandardNormalBoxMuller(rng),
-        targetConnectorId: null,
-        stopTimeline
-      };
-    });
-  }
-
-  function calibrateLegAlphas(seed, peakSpeedKmph, capacityPax) {
-    const pOff = calibrateJamParamBisection(CFG.trafficModel.targetSpeedOffpeakKmph);
-    const pPeak = calibrateJamParamBisection(peakSpeedKmph);
-    const matOff = buildParametricTransitionMatrix(pOff);
-    const matPeak = buildParametricTransitionMatrix(pPeak);
-    const nCalDays = 12;
-    const alphas = {};
-
-    for (const legKey of Object.keys(CFG.routes)) {
-      let low = 0.25;
-      let high = 2.50;
-      for (let iter = 0; iter < 16; iter++) {
-        const mid = 0.5 * (low + high);
-        let delaySum = 0.0;
-        let tripCount = 0;
-        for (let d = 0; d < nCalDays; d++) {
-          const calRng = createSeededRng(seed + 1009 * (d + 1));
-          const tGrid = generateDailyTrafficGrid(calRng, matOff, matPeak);
-          const trips = simulateLegDay(legKey, 0, tGrid, calRng, capacityPax, mid);
-          for (const tr of trips) {
-            delaySum += tr.borellaArrMin - tr.borellaSchedMin;
-            tripCount++;
-          }
-        }
-        const meanErr = delaySum / Math.max(1, tripCount);
-        if (meanErr > 0.0) low = mid;
-        else high = mid;
-      }
-      alphas[legKey] = 0.5 * (low + high);
-    }
-    return alphas;
-  }
-
-  function mapTargetConnectors(feeders, connectors) {
-    const sortedConn = [...connectors].sort((a, b) => a.borellaSchedMin - b.borellaSchedMin);
-    const map = new Map();
-    for (const f of feeders) {
-      const target = sortedConn.find((c) => c.borellaSchedMin >= f.borellaSchedMin - 1e-9);
-      f.targetConnectorId = target ? target.tripId : null;
-      map.set(f.tripId, f.targetConnectorId);
-    }
-    return map;
-  }
-
-  function resolveDirectionTransfers(groupLabel, feeders, connectors, params) {
-    const { policy, holdMaxMin, walkTimeMin, capacityPax } = params;
-    const { waitWeight, holdWeight } = CFG.objectiveWeights;
-    const missedPenaltyMin = CFG.busParameters.missedLastConnectorPenaltyMin || 60.0;
-    mapTargetConnectors(feeders, connectors);
-
-    const connById = new Map(connectors.map((c) => [c.tripId, c]));
-    const protectedByConn = new Map(connectors.map((c) => [c.tripId, []]));
-
-    for (const f of feeders) {
-      if (f.targetConnectorId && protectedByConn.has(f.targetConnectorId)) {
-        protectedByConn.get(f.targetConnectorId).push(f);
-      }
-    }
-
-    for (const c of connectors) {
-      let depMin = c.borellaBaseDepMin;
-      if (policy !== "none" && holdMaxMin > 0) {
-        const deadline = c.borellaSchedMin + holdMaxMin;
-        if (c.borellaBaseDepMin < deadline) {
-          const protFeeders = protectedByConn.get(c.tripId) || [];
-          let latestCatchableReady = c.borellaBaseDepMin;
-          for (const f of protFeeders) {
-            const readyActual = f.borellaArrMin + walkTimeMin;
-            const etaReady = readyActual + (f.etaErrMin || 0.0);
-            if (policy === "realtime" && etaReady > deadline + 1e-9) {
-              continue;
-            }
-            if (readyActual > latestCatchableReady) {
-              latestCatchableReady = readyActual;
-            }
-          }
-          depMin = Math.min(deadline, Math.max(c.borellaBaseDepMin, latestCatchableReady));
-        }
-      }
-      c.borellaActualDepMin = depMin;
-      c.borellaHoldMin = Math.max(0, depMin - c.borellaBaseDepMin);
-
-      const bIdx = CFG.routes[c.legKey].borellaStopIndex;
-      const shiftDelta = c.borellaHoldMin;
-      if (shiftDelta > 0) {
-        c.stopTimeline[bIdx].depMin += shiftDelta;
-        for (let s = bIdx + 1; s < c.stopTimeline.length; s++) {
-          c.stopTimeline[s].arrMin += shiftDelta;
-          c.stopTimeline[s].depMin += shiftDelta;
-        }
-      }
-    }
-
-    const sortedConn = [...connectors].sort((a, b) => a.borellaActualDepMin - b.borellaActualDepMin);
-    const seatsLeft = new Map(sortedConn.map((c) => [c.tripId, Math.max(0, capacityPax - c.borellaOnboardPax)]));
-
-    let made = 0;
-    let missedTiming = 0;
-    let missedCapacity = 0;
-    let outOfWindow = 0;
-    let totalWaitMin = 0;
-    let totalHoldPaxMin = 0;
-    const transferEvents = [];
-
-    for (const c of sortedConn) {
-      totalHoldPaxMin += c.borellaOnboardPax * c.borellaHoldMin;
-    }
-
-    for (const f of [...feeders].sort((a, b) => a.borellaArrMin - b.borellaArrMin)) {
-      const nPax = f.transferPaxCount;
-      if (!f.targetConnectorId) {
-        outOfWindow += nPax;
-        continue;
-      }
-      const readyMin = f.borellaArrMin + walkTimeMin;
-      const targetConn = connById.get(f.targetConnectorId);
-      const timingOk = readyMin <= targetConn.borellaActualDepMin + 1e-6;
-      const candidateConns = sortedConn.filter((c) => c.borellaActualDepMin >= readyMin - 1e-6);
-
-      let fMade = 0;
-      let fMissTiming = 0;
-      let fMissCap = 0;
-      let boardedConnId = null;
-
-      for (let p = 0; p < nPax; p++) {
-        const boarded = candidateConns.find((c) => seatsLeft.get(c.tripId) > 0);
-        if (boarded) {
-          seatsLeft.set(boarded.tripId, seatsLeft.get(boarded.tripId) - 1);
-          boardedConnId = boarded.tripId;
-          const waitMin = Math.max(0, boarded.borellaActualDepMin - readyMin);
-          totalWaitMin += waitMin;
-          if (boarded.borellaSchedMin <= targetConn.borellaSchedMin && timingOk) {
-            made++;
-            fMade++;
-          } else if (!timingOk) {
-            missedTiming++;
-            fMissTiming++;
-          } else {
-            missedCapacity++;
-            fMissCap++;
-          }
-        } else {
-          totalWaitMin += missedPenaltyMin;
-          if (!timingOk) {
-            missedTiming++;
-            fMissTiming++;
-          } else {
-            missedCapacity++;
-            fMissCap++;
-          }
-        }
-      }
-
-      transferEvents.push({
-        group: groupLabel,
-        feederId: f.tripId,
-        fromRoute: f.routeCode,
-        targetConnId: f.targetConnectorId,
-        boardedConnId,
-        startWalkMin: f.borellaArrMin,
-        readyMin,
-        paxCount: nPax,
-        madeCount: fMade,
-        missedTimingCount: fMissTiming,
-        missedCapCount: fMissCap,
-        targetHoldMin: targetConn.borellaHoldMin
-      });
-    }
-
-    const inWindow = made + missedTiming + missedCapacity;
-    return {
-      made,
-      missedTiming,
-      missedCapacity,
-      missedTotal: missedTiming + missedCapacity,
-      outOfWindow,
-      inWindow,
-      waitCost: waitWeight * totalWaitMin,
-      holdCost: holdWeight * totalHoldPaxMin,
-      totalCost: waitWeight * totalWaitMin + holdWeight * totalHoldPaxMin,
-      transferEvents
-    };
-  }
-
-  function simulateFullDay(params, rng) {
-    const pOff = calibrateJamParamBisection(CFG.trafficModel.targetSpeedOffpeakKmph);
-    const pPeak = calibrateJamParamBisection(params.peakSpeedKmph);
-    const matOff = buildParametricTransitionMatrix(pOff);
-    const matPeak = buildParametricTransitionMatrix(pPeak);
-
-    const traffic = {
-      CM01_MAK_to_FOR: generateDailyTrafficGrid(rng, matOff, matPeak),
-      CM01_FOR_to_MAK: generateDailyTrafficGrid(rng, matOff, matPeak),
-      CM03_MAK_to_KAD: generateDailyTrafficGrid(rng, matOff, matPeak),
-      CM03_KAD_to_MAK: generateDailyTrafficGrid(rng, matOff, matPeak)
-    };
-
-    const shift01 = params.shiftRoute === "CM01" ? params.shiftMin : 0;
-    const shift03 = params.shiftRoute === "CM03" ? params.shiftMin : 0;
-
-    const cm01Mak = simulateLegDay("CM01_MAK_to_FOR", shift01, traffic.CM01_MAK_to_FOR, rng, params.capacityPax);
-    const cm01For = simulateLegDay("CM01_FOR_to_MAK", shift01, traffic.CM01_FOR_to_MAK, rng, params.capacityPax);
-    const cm03Mak = simulateLegDay("CM03_MAK_to_KAD", shift03, traffic.CM03_MAK_to_KAD, rng, params.capacityPax);
-    const cm03Kad = simulateLegDay("CM03_KAD_to_MAK", shift03, traffic.CM03_KAD_to_MAK, rng, params.capacityPax);
-
-    const resA = resolveDirectionTransfers("Group A (KAD->FOR)", cm03Kad, cm01Mak, params);
-    const resB = resolveDirectionTransfers("Group B (FOR->KAD)", cm01For, cm03Mak, params);
-
-    const inWindowAll = resA.inWindow + resB.inWindow;
-    const missedAll = resA.missedTotal + resB.missedTotal;
-
-    return {
-      traffic,
-      buses: [...cm01Mak, ...cm01For, ...cm03Mak, ...cm03Kad],
-      transferEvents: [...resA.transferEvents, ...resB.transferEvents].sort((a, b) => a.readyMin - b.readyMin),
-      resA,
-      resB,
-      missRateAllPct: inWindowAll > 0 ? (100.0 * missedAll) / inWindowAll : 0,
-      missRateAPct: resA.inWindow > 0 ? (100.0 * resA.missedTotal) / resA.inWindow : 0,
-      missRateBPct: resB.inWindow > 0 ? (100.0 * resB.missedTotal) / resB.inWindow : 0,
-      waitCostTotal: resA.waitCost + resB.waitCost,
-      holdCostTotal: resA.holdCost + resB.holdCost,
-      objectiveJ: resA.totalCost + resB.totalCost
-    };
-  }
-
-  function computeMeanAndCi(values) {
-    const n = values.length;
-    if (n === 0) return { mean: 0, ci: 0 };
-    const mean = values.reduce((a, b) => a + b, 0) / n;
-    if (n === 1) return { mean, ci: 0 };
-    const variance = values.reduce((a, b) => a + (b - mean) ** 2, 0) / (n - 1);
-    return { mean, ci: (1.96 * Math.sqrt(variance)) / Math.sqrt(n) };
-  }
+  const { createSeededRng, formatMinutesToHhmm, isPeakTime, getTrafficStateAt, simulateFullDay, computeMeanAndCi } = window.SimEngine;
+  const REF = CFG.notebookReference;
 
   const state = {
     rng: null,
@@ -527,8 +18,6 @@
     animId: null,
     dayIndex: 1,
     simClockMin: 450,
-    legSpeedAlphas: {},
-    lastCalKey: "",
     currentDay: null,
     hoveredBusId: null,
     selectedBusId: null,
@@ -539,6 +28,7 @@
     objHistory: [],
     waitCostHistory: [],
     holdCostHistory: [],
+    lostHistory: [],
     convergenceTrace: []
   };
 
@@ -609,14 +99,14 @@
     $("shiftMinVal").textContent = `${p.shiftMin > 0 ? "+" : ""}${p.shiftMin} min`;
     $("walkTimeVal").textContent = `${p.walkTimeMin.toFixed(1)} min`;
     $("capacityPaxVal").textContent = `${p.capacityPax} pax`;
-    $("peakSpeedVal").textContent = `${p.peakSpeedKmph.toFixed(0)} km/h`;
+    $("peakSpeedVal").textContent = `${p.peakSpeedKmph.toFixed(1)} km/h`;
     $("animSpeedVal").textContent = `${p.animSpeed.toFixed(1)}x`;
     $("repTotalVal").textContent = `${p.repTotal} days`;
 
     const ruleDescriptions = {
-      none: "Connectors depart strictly at max(T_sched, T_arr + dwell) with zero feeder holding.",
-      schedule: `Holds connectors up to T_sched + ${p.holdMaxMin.toFixed(1)}m whenever any protected feeder is still approaching.`,
-      realtime: `Holds up to T_sched + ${p.holdMaxMin.toFixed(1)}m only if noisy ETA confirms the feeder is catchable.`
+      none: "Connectors leave Borella as soon as they have served the stop (T_arr + dwell), with no holding.",
+      schedule: `Connectors wait up to ${p.holdMaxMin.toFixed(1)} min past their natural departure for every linked feeder.`,
+      realtime: `Connectors wait up to ${p.holdMaxMin.toFixed(1)} min only for feeders whose noisy ETA says they can make it.`
     };
     $("policyRuleBox").textContent = ruleDescriptions[p.policy] || ruleDescriptions.schedule;
     syncSegmentedButtons(p.policy, p.shiftRoute);
@@ -627,11 +117,43 @@
   }
 
   function updateAlphaReadout() {
-    const a = state.legSpeedAlphas;
-    if (!a.CM01_MAK_to_FOR) return;
+    const a = REF.calibratedAlphas;
     $("alphaReadout").textContent =
-      `CALIBRATED ALPHA // CM01 MAK-FOR ${a.CM01_MAK_to_FOR.toFixed(3)} | CM01 FOR-MAK ${a.CM01_FOR_to_MAK.toFixed(3)} | ` +
+      `NOTEBOOK-CALIBRATED ALPHA // CM01 MAK-FOR ${a.CM01_MAK_to_FOR.toFixed(3)} | CM01 FOR-MAK ${a.CM01_FOR_to_MAK.toFixed(3)} | ` +
       `CM03 MAK-KAD ${a.CM03_MAK_to_KAD.toFixed(3)} | CM03 KAD-MAK ${a.CM03_KAD_to_MAK.toFixed(3)}`;
+  }
+
+  function matchingReferenceScenario(params) {
+    const defaults = CFG.busParameters;
+    const isDefaultWorld =
+      Math.abs(params.walkTimeMin - defaults.walkTimeMin) < 1e-9 &&
+      params.capacityPax === defaults.capacityPax &&
+      Math.abs(params.peakSpeedKmph - CFG.trafficModel.targetSpeedPeakKmph) < 1e-9;
+    if (!isDefaultWorld) return null;
+    return REF.scenarios.find((sc) => {
+      const shift = sc.shiftMin === 0 || params.shiftRoute === sc.shiftRoute ? sc.shiftMin : null;
+      const holdMatches = sc.policy === "none" ? params.policy === "none" || params.holdMaxMin === 0 : params.policy === sc.policy && Math.abs(params.holdMaxMin - sc.holdMaxMin) < 1e-9;
+      return holdMatches && shift !== null && Math.abs(params.shiftMin - shift) < 1e-9;
+    }) || null;
+  }
+
+  function renderReferenceCheck(params, mAll) {
+    const el = $("referenceCheck");
+    const sc = matchingReferenceScenario(params);
+    if (!sc) {
+      el.textContent = "Notebook check: choose a preset with default walk, capacity and peak speed to compare.";
+      el.className = "kpi-sub";
+      return;
+    }
+    if (!mAll || state.missAllHistory.length < REF.minDaysForCheck) {
+      el.textContent = `Notebook (${sc.label}): ${sc.missAllPct.toFixed(2)}% +/- ${sc.missAllCi95.toFixed(2)}. Run ${REF.minDaysForCheck}+ days to compare.`;
+      el.className = "kpi-sub";
+      return;
+    }
+    const diff = mAll.mean - sc.missAllPct;
+    const pass = Math.abs(diff) <= REF.tolerancePp;
+    el.textContent = `Notebook ${sc.missAllPct.toFixed(2)}% vs web ${mAll.mean.toFixed(2)}%: diff ${diff >= 0 ? "+" : ""}${diff.toFixed(2)} pp (tolerance +/-${REF.tolerancePp.toFixed(1)} pp) ${pass ? "PASS" : "OUTSIDE"}`;
+    el.className = `kpi-sub ${pass ? "ref-pass" : "ref-fail"}`;
   }
 
   function summariseDayAt(day, tNow) {
@@ -938,7 +460,8 @@
 
       $("outMissAll").textContent = `${mAll.mean.toFixed(1)}% +/- ${mAll.ci.toFixed(1)}%`;
       $("barMissAll").style.width = `${Math.min(100, mAll.mean).toFixed(1)}%`;
-      $("subMissAll").textContent = `Over ${state.missAllHistory.length} / ${params.repTotal} days`;
+      $("subMissAll").textContent = `Over ${state.missAllHistory.length} / ${params.repTotal} days | lost to other transport ${computeMeanAndCi(state.lostHistory).mean.toFixed(1)}%`;
+      renderReferenceCheck(params, mAll);
 
       $("outMissAB").textContent = `A: ${mA.mean.toFixed(1)}% | B: ${mB.mean.toFixed(1)}%`;
       $("barMissAB").style.width = `${Math.min(100, 0.5 * (mA.mean + mB.mean)).toFixed(1)}%`;
@@ -951,6 +474,7 @@
       $("outMissAll").textContent = `${day.missRateAllPct.toFixed(1)}% (Day 1)`;
       $("barMissAll").style.width = `${Math.min(100, day.missRateAllPct).toFixed(1)}%`;
       $("subMissAll").textContent = "Day 1 preview (click +1 Day or Run All R)";
+      renderReferenceCheck(params, null);
 
       $("outMissAB").textContent = `A: ${day.missRateAPct.toFixed(1)}% | B: ${day.missRateBPct.toFixed(1)}%`;
       $("barMissAB").style.width = `${Math.min(100, 0.5 * (day.missRateAPct + day.missRateBPct)).toFixed(1)}%`;
@@ -1024,6 +548,7 @@
     state.objHistory.push(d.objectiveJ);
     state.waitCostHistory.push(d.waitCostTotal);
     state.holdCostHistory.push(d.holdCostTotal);
+    state.lostHistory.push(d.lostRatePct);
     const stats = computeMeanAndCi(state.missAllHistory);
     state.convergenceTrace.push({ day: state.dayIndex, mean: stats.mean, ci: stats.ci });
   }
@@ -1095,12 +620,6 @@
   function resetSimulation() {
     pauseSimulation();
     const params = readUIParams();
-    const calKey = `${params.seed}|${params.peakSpeedKmph}|${params.capacityPax}`;
-    if (state.lastCalKey !== calKey) {
-      state.legSpeedAlphas = calibrateLegAlphas(params.seed, params.peakSpeedKmph, params.capacityPax);
-      state.lastCalKey = calKey;
-      updateAlphaReadout();
-    }
     state.rng = createSeededRng(params.seed);
     state.dayIndex = 1;
     state.simClockMin = 450;
@@ -1112,6 +631,7 @@
     state.objHistory = [];
     state.waitCostHistory = [];
     state.holdCostHistory = [];
+    state.lostHistory = [];
     state.convergenceTrace = [];
     state.currentDay = simulateFullDay(params, state.rng);
     $("startBtn").disabled = false;
@@ -1210,9 +730,9 @@
         $("shiftMin").value = "0";
       } else if (preset === "realtime") {
         $("policy").value = "realtime";
-        $("holdMax").value = "6.0";
-        $("shiftRoute").value = "CM01";
-        $("shiftMin").value = "5";
+        $("holdMax").value = "10.0";
+        $("shiftRoute").value = "CM03";
+        $("shiftMin").value = "-10";
       }
       updateControlReadouts();
       resetSimulation();
@@ -1220,5 +740,6 @@
   });
 
   updateControlReadouts();
+  updateAlphaReadout();
   resetSimulation();
 })();

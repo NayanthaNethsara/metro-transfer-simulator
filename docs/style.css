@@ -709,6 +709,14 @@ input[type="number"]:focus {
   color: var(--color-ink-secondary);
 }
 
+.kpi-sub.ref-pass {
+  color: var(--color-success);
+}
+
+.kpi-sub.ref-fail {
+  color: var(--color-danger);
+}
+
 .outcome.made {
   color: var(--color-success);
 }

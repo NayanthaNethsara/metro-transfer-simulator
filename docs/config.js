@@ -13,6 +13,11 @@ window.SIM_CONFIG = {
     ]
   },
 
+  demand: {
+    peakMultiplier: 1.35,
+    offpeakMultiplier: 0.85
+  },
+
   busParameters: {
     capacityPax: 80,
     doorTimeSec: 12.0,
@@ -20,8 +25,9 @@ window.SIM_CONFIG = {
     alightTimeSec: 2.0,
     transferMeanPax: 5.0,
     walkTimeMin: 3.5,
-    borellaInterpolationFraction: 0.5,
-    missedLastConnectorPenaltyMin: 60.0,
+    passengerPatienceMin: 60.0,
+    ticketValidityMin: 120.0,
+    alternativeTravelPenaltyMin: 60.0,
     etaNoiseSdMin: 1.0
   },
 
@@ -39,75 +45,69 @@ window.SIM_CONFIG = {
   },
 
   notebookReference: {
-    description: "Verified Python notebook ensemble calibrated to cmb_traffic (52,255 journeys, seed = 42, w = 3.5 min, R = 1000 CRN days)",
-    status: "verified",
-    tolerancePct: 5.0,
+    description: "Notebook consolidated policy comparison (seed = 42, R = 1000 CRN days, w = 3.5 min, C = 80, cmb_traffic speeds, OSRM road distances)",
+    tolerancePp: 2.0,
+    minDaysForCheck: 300,
     calibratedAlphas: {
-      CM01_MAK_to_FOR: 0.582,
-      CM01_FOR_to_MAK: 0.533,
-      CM03_MAK_to_KAD: 0.575,
-      CM03_KAD_to_MAK: 0.581
+      CM01_MAK_to_FOR: 0.498,
+      CM01_FOR_to_MAK: 0.648,
+      CM03_MAK_to_KAD: 0.457,
+      CM03_KAD_to_MAK: 0.714
     },
-    baseline: {
-      policy: "none",
-      holdMaxMin: 0.0,
-      shiftRoute: "CM01",
-      shiftMin: 0,
-      replications: 1000,
-      missAllPct: 19.94,
-      missAllCi95: 0.61,
-      missAPct: 18.78,
-      missBPct: 20.75,
-      meanWaitMin: 39.99,
-      objectiveJ: 7577.5,
-      objectiveJCi95: 101.7
-    },
-    holdOnlyRealtime3m: {
-      policy: "realtime",
-      holdMaxMin: 3.0,
-      shiftRoute: "CM01",
-      shiftMin: 0,
-      replications: 1000,
-      missAllPct: 18.47,
-      missAllCi95: 0.61,
-      missAPct: 16.61,
-      missBPct: 19.79,
-      meanWaitMin: 38.95,
-      holdCostPaxMin: 19.9,
-      objectiveJ: 7401.6,
-      objectiveJCi95: 101.2
-    },
-    jointOptimalRealtime: {
-      policy: "realtime",
-      holdMaxMin: 6.0,
-      shiftRoute: "CM01",
-      shiftMin: 5,
-      replications: 1000,
-      missAllPct: 14.33,
-      missAllCi95: 0.53,
-      missAPct: 11.72,
-      missBPct: 16.17,
-      meanWaitMin: 37.50,
-      holdCostPaxMin: 51.7,
-      objectiveJ: 7167.7,
-      objectiveJCi95: 95.4
-    },
-    jointUncapped: {
-      capacityPax: null,
-      policy: "realtime",
-      holdMaxMin: 6.0,
-      shiftRoute: "CM01",
-      shiftMin: 5,
-      replications: 1000,
-      missAllPct: 5.47,
-      missAllCi95: 0.36,
-      missAPct: 8.54,
-      missBPct: 3.26,
-      meanWaitMin: 31.90,
-      holdCostPaxMin: 53.5,
-      objectiveJ: 6131.4,
-      objectiveJCi95: 65.0
-    }
+    scenarios: [
+      {
+        label: "Baseline",
+        policy: "none",
+        holdMaxMin: 0.0,
+        shiftRoute: "CM03",
+        shiftMin: 0,
+        missAllPct: 14.94,
+        missAllCi95: 0.54,
+        missAPct: 21.32,
+        missBPct: 10.25,
+        objectiveJ: 10185.3,
+        objectiveJCi95: 94.4
+      },
+      {
+        label: "Hold only, schedule h = 3 min",
+        policy: "schedule",
+        holdMaxMin: 3.0,
+        shiftRoute: "CM03",
+        shiftMin: 0,
+        missAllPct: 12.36,
+        missAllCi95: 0.50,
+        missAPct: 17.12,
+        missBPct: 8.88,
+        objectiveJ: 10098.3,
+        objectiveJCi95: 95.2
+      },
+      {
+        label: "Hold only, real-time h = 3 min",
+        policy: "realtime",
+        holdMaxMin: 3.0,
+        shiftRoute: "CM03",
+        shiftMin: 0,
+        missAllPct: 12.67,
+        missAllCi95: 0.50,
+        missAPct: 17.57,
+        missBPct: 9.09,
+        objectiveJ: 9953.0,
+        objectiveJCi95: 93.6
+      },
+      {
+        label: "Joint, real-time h = 10 min, CM03 -10 min",
+        policy: "realtime",
+        holdMaxMin: 10.0,
+        shiftRoute: "CM03",
+        shiftMin: -10,
+        missAllPct: 11.07,
+        missAllCi95: 0.50,
+        missAPct: 9.43,
+        missBPct: 12.27,
+        objectiveJ: 9388.3,
+        objectiveJCi95: 90.6
+      }
+    ]
   },
 
   routes: {
@@ -116,7 +116,7 @@ window.SIM_CONFIG = {
       label: "CM01: Makumbura to Colombo Fort",
       role: "Group A Connector",
       borellaStopIndex: 3,
-      segmentDistancesKm: [12.5, 4.0, 2.5, 2.5, 3.0],
+      segmentDistancesKm: [11.45, 2.76, 1.95, 1.88, 3.50],
       baseArrivalRatePaxPerMin: [0.45, 0.35, 0.30, 0.20, 0.12, 0.0],
       stops: ["Makumbura", "Sethsiripaya", "Rajagiriya", "Borella (Singer Mega)", "Town Hall", "Colombo Fort"]
     },
@@ -125,7 +125,7 @@ window.SIM_CONFIG = {
       label: "CM01: Colombo Fort to Makumbura",
       role: "Group B Feeder",
       borellaStopIndex: 3,
-      segmentDistancesKm: [1.0, 2.5, 2.5, 2.5, 4.0, 12.5],
+      segmentDistancesKm: [0.90, 4.18, 1.85, 2.40, 2.67, 11.29],
       baseArrivalRatePaxPerMin: [0.30, 0.35, 0.25, 0.20, 0.15, 0.10, 0.0],
       stops: ["Colombo Fort", "Pettah", "Town Hall", "Borella (Singer Mega)", "Rajagiriya", "Sethsiripaya", "Makumbura"]
     },
@@ -134,7 +134,7 @@ window.SIM_CONFIG = {
       label: "CM03: Makumbura to Kadawatha",
       role: "Group B Connector",
       borellaStopIndex: 4,
-      segmentDistancesKm: [6.5, 2.5, 7.0, 3.0, 2.5, 7.5, 4.5],
+      segmentDistancesKm: [5.98, 1.12, 7.20, 2.36, 0.73, 8.96, 5.78],
       baseArrivalRatePaxPerMin: [0.32, 0.20, 0.20, 0.25, 0.20, 0.15, 0.10, 0.0],
       stops: ["Makumbura", "Apeksha Hospital", "Nawinna", "Narahenpita Junction", "Borella 02 (YMBA)", "Cambell Park", "Kelaniya University", "Kadawatha"]
     },
@@ -143,7 +143,7 @@ window.SIM_CONFIG = {
       label: "CM03: Kadawatha to Makumbura",
       role: "Group A Feeder",
       borellaStopIndex: 3,
-      segmentDistancesKm: [4.5, 7.5, 2.5, 3.0, 7.0, 2.5, 6.5],
+      segmentDistancesKm: [5.90, 8.63, 0.80, 2.35, 7.17, 1.18, 5.85],
       baseArrivalRatePaxPerMin: [0.28, 0.20, 0.20, 0.20, 0.15, 0.12, 0.10, 0.0],
       stops: ["Kadawatha", "Kelaniya University", "Cambell Park", "Borella 02 (YMBA)", "Narahenpita Junction", "Nawinna", "Apeksha Hospital", "Makumbura"]
     }

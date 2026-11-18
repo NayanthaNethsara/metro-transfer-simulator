@@ -34,52 +34,52 @@ Use Google Maps walking directions between the two Borella stops.
 
 ## 2. Road distances between stops
 
-Use driving directions and drag the route so it follows the roads the bus actually uses. The placeholder column shows what the simulator uses now.
+Use driving directions and drag the route so it follows the roads the bus actually uses. The last column shows what the simulator uses now: OSRM road distances between the geocoded stops (`scripts/build_corridor_geometry.py`).
 
 ### CM01 Makumbura to Colombo Fort
 
-| From | To | Distance (km) | Placeholder (km) |
+| From | To | Distance (km) | Model now uses (OSRM km) |
 |---|---|---|---|
-| Makumbura | Sethsiripaya | 13.0 (g) | 12.5 |
-| Sethsiripaya | Rajagiriya | 3.5 (g) | 4.0 |
-| Rajagiriya | Borella (Singer Mega) | 3.0 (g) | 2.5 |
-| Borella (Singer Mega) | Town Hall | 2.5 (g) | 2.5 |
-| Town Hall | Colombo Fort | 3.5 (g) | 3.0 |
+| Makumbura | Sethsiripaya | 13.0 (g) | 11.45 |
+| Sethsiripaya | Rajagiriya | 3.5 (g) | 2.76 |
+| Rajagiriya | Borella (Singer Mega) | 3.0 (g) | 1.95 |
+| Borella (Singer Mega) | Town Hall | 2.5 (g) | 1.88 |
+| Town Hall | Colombo Fort | 3.5 (g) | 3.50 |
 
 ### CM01 Colombo Fort to Makumbura
 
-| From | To | Distance (km) | Placeholder (km) |
+| From | To | Distance (km) | Model now uses (OSRM km) |
 |---|---|---|---|
-| Colombo Fort | Pettah | 1.0 (g) | 1.0 |
-| Pettah | Town Hall | 3.0 (g) | 2.5 |
-| Town Hall | Borella (Singer Mega) | 2.5 (g) | 2.5 |
-| Borella (Singer Mega) | Rajagiriya | 3.0 (g) | 2.5 |
-| Rajagiriya | Sethsiripaya | 3.5 (g) | 4.0 |
-| Sethsiripaya | Makumbura | 13.0 (g) | 12.5 |
+| Colombo Fort | Pettah | 1.0 (g) | 0.90 |
+| Pettah | Town Hall | 3.0 (g) | 4.18 |
+| Town Hall | Borella (Singer Mega) | 2.5 (g) | 1.85 |
+| Borella (Singer Mega) | Rajagiriya | 3.0 (g) | 2.40 |
+| Rajagiriya | Sethsiripaya | 3.5 (g) | 2.67 |
+| Sethsiripaya | Makumbura | 13.0 (g) | 11.29 |
 
 ### CM03 Makumbura to Kadawatha
 
-| From | To | Distance (km) | Placeholder (km) |
+| From | To | Distance (km) | Model now uses (OSRM km) |
 |---|---|---|---|
-| Makumbura | Apeksha Hospital | 5.0 (g) | 6.5 |
-| Apeksha Hospital | Nawinna | 1.5 (g) | 2.5 |
-| Nawinna | Narahenpita Junction | 7.5 (g) | 7.0 |
-| Narahenpita Junction | Borella 02 (YMBA) | 2.5 (g) | 3.0 |
-| Borella 02 (YMBA) | Cambell Park | 1.0 (g) | 2.5 |
-| Cambell Park | Kelaniya University | 10.0 (g) | 7.5 |
-| Kelaniya University | Kadawatha | 5.0 (g) | 4.5 |
+| Makumbura | Apeksha Hospital | 5.0 (g) | 5.98 |
+| Apeksha Hospital | Nawinna | 1.5 (g) | 1.12 |
+| Nawinna | Narahenpita Junction | 7.5 (g) | 7.20 |
+| Narahenpita Junction | Borella 02 (YMBA) | 2.5 (g) | 2.36 |
+| Borella 02 (YMBA) | Cambell Park | 1.0 (g) | 0.73 |
+| Cambell Park | Kelaniya University | 10.0 (g) | 8.96 |
+| Kelaniya University | Kadawatha | 5.0 (g) | 5.78 |
 
 ### CM03 Kadawatha to Makumbura
 
-| From | To | Distance (km) | Placeholder (km) |
+| From | To | Distance (km) | Model now uses (OSRM km) |
 |---|---|---|---|
-| Kadawatha | Kelaniya University | 5.0 (g) | 4.5 |
-| Kelaniya University | Cambell Park | 10.0 (g) | 7.5 |
-| Cambell Park | Borella 02 (YMBA) | 1.0 (g) | 2.5 |
-| Borella 02 (YMBA) | Narahenpita Junction | 2.5 (g) | 3.0 |
-| Narahenpita Junction | Nawinna | 7.5 (g) | 7.0 |
-| Nawinna | Apeksha Hospital | 1.5 (g) | 2.5 |
-| Apeksha Hospital | Makumbura | 5.0 (g) | 6.5 |
+| Kadawatha | Kelaniya University | 5.0 (g) | 5.90 |
+| Kelaniya University | Cambell Park | 10.0 (g) | 8.63 |
+| Cambell Park | Borella 02 (YMBA) | 1.0 (g) | 0.80 |
+| Borella 02 (YMBA) | Narahenpita Junction | 2.5 (g) | 2.35 |
+| Narahenpita Junction | Nawinna | 7.5 (g) | 7.17 |
+| Nawinna | Apeksha Hospital | 1.5 (g) | 1.18 |
+| Apeksha Hospital | Makumbura | 5.0 (g) | 5.85 |
 
 ## 3. Typical driving time to Borella by time of day
 

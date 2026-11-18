@@ -42,7 +42,7 @@
           </button>
           <button type="button" class="preset-btn" data-preset="realtime">
             <span class="p-name">03. RT + SHIFT</span>
-            <span class="p-sub">eta | +5m CM01</span>
+            <span class="p-sub">eta h=10m | -10m CM03</span>
           </button>
         </div>
       </div>
@@ -64,14 +64,14 @@
           <button type="button" class="seg-btn active" data-policy="schedule">SCHEDULE</button>
           <button type="button" class="seg-btn" data-policy="realtime">REAL-TIME</button>
         </div>
-        <div class="rule-box" id="policyRuleBox">Holds connecting bus up to T_sched + h while any protected feeder is still approaching Borella.</div>
+        <div class="rule-box" id="policyRuleBox">Connectors wait up to h minutes past their natural Borella departure for every linked feeder.</div>
 
         <label class="field-label" for="holdMax">
           <span>Max hold time h</span>
           <span class="field-value" id="holdMaxVal">3.0 min</span>
         </label>
-        <input id="holdMax" type="range" min="0" max="6" step="0.5" value="3.0">
-        <div class="slider-bounds"><span>0.0m (MIN)</span><span>6.0m (MAX)</span></div>
+        <input id="holdMax" type="range" min="0" max="10" step="0.5" value="3.0">
+        <div class="slider-bounds"><span>0.0m (MIN)</span><span>10.0m (MAX)</span></div>
 
         <label class="field-label" for="shiftRoute">Timetable shift route</label>
         <select id="shiftRoute" class="sr-only" aria-label="Timetable shift route">
@@ -101,8 +101,8 @@
           <span>Borella walk time w</span>
           <span class="field-value" id="walkTimeVal">3.5 min</span>
         </label>
-        <input id="walkTime" type="range" min="1" max="6" step="0.5" value="3.5">
-        <div class="slider-bounds"><span>1.0m (MIN)</span><span>6.0m (MAX)</span></div>
+        <input id="walkTime" type="range" min="1" max="7" step="0.5" value="3.5">
+        <div class="slider-bounds"><span>1.0m (MIN)</span><span>7.0m (MAX)</span></div>
 
         <label class="field-label" for="capacityPax">
           <span>Bus capacity C</span>
@@ -113,9 +113,9 @@
 
         <label class="field-label" for="peakSpeed">
           <span>Peak target car speed</span>
-          <span class="field-value" id="peakSpeedVal">24 km/h</span>
+          <span class="field-value" id="peakSpeedVal">24.1 km/h</span>
         </label>
-        <input id="peakSpeed" type="range" min="16" max="32" step="1" value="24">
+        <input id="peakSpeed" type="range" min="16" max="32" step="0.1" value="24.1">
         <div class="slider-bounds"><span>16 KM/H (SEVERE)</span><span>32 KM/H (LIGHT)</span></div>
       </div>
 
@@ -152,12 +152,14 @@
 
       <details>
         <summary>About / How to Use &amp; Model Rules</summary>
-        <p>All schedules, stop distances, dwell coefficients, and Markov traffic speeds are defined in <code>docs/config.js</code>. Stop locations and road paths on the map come from OpenStreetMap (<code>docs/corridor-geo.js</code>) and are for display only. Per-leg speed scaling factors (alpha) are calibrated dynamically in your browser via bisection on seed or parameter reset.</p>
+        <p>The browser runs the same model as the notebook (<code>docs/sim-engine.js</code>): timetables, OpenStreetMap road distances, dwell coefficients, Markov traffic speeds and the per-leg speed factors (alpha) calibrated in the notebook are in <code>docs/config.js</code>. Stop locations and road paths on the map come from OpenStreetMap (<code>docs/corridor-geo.js</code>).</p>
         <ul>
           <li><strong>Interactive inspection:</strong> Hover or click any bus on the map (buses keep to the left lane of their direction), any row in the Connector table, or any item in the Transfer Log to jump directly to that Borella event.</li>
           <li><strong>Dwell formula:</strong> (12s + 2s * alight + 3s * board) / 60.</li>
           <li><strong>Traffic DTMC:</strong> 3-state peak/off-peak Markov chain calibrated via stationary distribution bisection (peak 06:00-09:00 and 17:00-20:00).</li>
-          <li><strong>Objective J:</strong> 2.0 * transfer wait + 1.0 * on-board hold pax-min (60 min penalty if the last connector is missed).</li>
+          <li><strong>Boarding at Borella:</strong> local and through-ticket passengers board first come, first served, up to the bus capacity. A passenger who misses a bus waits for the next one only if it is due within 60 min (patience) and within 120 min of reaching Borella (ticket validity); otherwise they leave for other transport.</li>
+          <li><strong>Objective J:</strong> 2.0 * (walk + wait at Borella, plus 60 min for each passenger lost to other transport or with no connection that day) + 1.0 * on-board hold pax-min.</li>
+          <li><strong>Notebook check:</strong> with a preset and default walk, capacity and peak speed, the Mean Missed card compares this run with the notebook reference result (R = 1000 days) and states whether it is within tolerance.</li>
         </ul>
       </details>
     </aside>
@@ -171,8 +173,8 @@
         </div>
         <div class="jump-group" aria-label="Quick time jumps">
           <button type="button" class="time-jump-btn" data-jump-min="480">08:00 AM PEAK</button>
-          <button type="button" class="time-jump-btn" data-jump-min="556">09:16 TIGHT B</button>
-          <button type="button" class="time-jump-btn" data-jump-min="886">14:46 TIGHT A</button>
+          <button type="button" class="time-jump-btn" data-jump-min="552">09:14 TIGHT B</button>
+          <button type="button" class="time-jump-btn" data-jump-min="877">14:39 TIGHT A</button>
           <button type="button" class="time-jump-btn" data-jump-min="1066">17:46 PM PEAK</button>
         </div>
       </div>
@@ -205,6 +207,7 @@
           <div class="v" id="outMissAll">-</div>
           <div class="kpi-bar"><div class="kpi-bar-fill warn" id="barMissAll"></div></div>
           <div class="kpi-sub" id="subMissAll">Across completed days</div>
+          <div class="kpi-sub" id="referenceCheck">Notebook check: run days to compare.</div>
         </div>
         <div class="stat-card">
           <div class="k">Group A vs Group B Miss</div>
@@ -264,6 +267,7 @@
   <script src="config.js"></script>
   <script src="corridor-geo.js"></script>
   <script src="corridor-map.js"></script>
+  <script src="sim-engine.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
