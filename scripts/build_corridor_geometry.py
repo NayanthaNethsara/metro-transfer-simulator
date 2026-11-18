@@ -38,20 +38,96 @@ LEG_STOPS = {
 DRIVING_ROUTER_URL = "https://router.project-osrm.org/route/v1/driving/{coords}?overview=full&geometries=geojson"
 WALKING_ROUTER_URL = "https://routing.openstreetmap.de/routed-foot/route/v1/driving/{coords}?overview=full&geometries=geojson"
 SIMPLIFY_TOLERANCE_M = 6.0
+DETOUR_MAX_CHORD_M = 200.0
+DETOUR_MIN_LENGTH_M = 60.0
+DETOUR_MAX_LENGTH_M = 4000.0
+DETOUR_MIN_LENGTH_RATIO = 3.0
+SPUR_RETRACE_RADIUS_M = 40.0
+SPUR_RETRACE_SHARE = 0.8
+STOP_ON_DETOUR_MARGIN_M = 25.0
 
 
-def fetch_route(url_template, stop_names):
-    coords = ";".join(f"{STOP_COORDINATES[name][1]},{STOP_COORDINATES[name][0]}" for name in stop_names)
+def fetch_route(url_template, coordinates):
+    coords = ";".join(f"{lng},{lat}" for lat, lng in coordinates)
     request = urllib.request.Request(url_template.format(coords=coords), headers={"User-Agent": "corridor-geometry-builder/1.0"})
     with urllib.request.urlopen(request, timeout=60) as response:
         payload = json.load(response)
     if payload.get("code") != "Ok":
-        raise RuntimeError(f"router error for {stop_names}: {payload.get('code')}")
+        raise RuntimeError(f"router error for {coordinates}: {payload.get('code')}")
     route = payload["routes"][0]
     path = [(lat, lng) for lng, lat in route["geometry"]["coordinates"]]
     snapped = [(wp["location"][1], wp["location"][0]) for wp in payload["waypoints"]]
-    leg_distances_km = [leg["distance"] / 1000.0 for leg in route["legs"]]
-    return path, snapped, leg_distances_km
+    return path, snapped
+
+
+def distance_m(a, b):
+    return math.hypot(*local_xy_m(b, a))
+
+
+def cumulative_distances_m(path):
+    cumulative = [0.0]
+    for a, b in zip(path, path[1:]):
+        cumulative.append(cumulative[-1] + distance_m(a, b))
+    return cumulative
+
+
+def distance_to_polyline_m(point, polyline):
+    if len(polyline) == 1:
+        return distance_m(point, polyline[0])
+    return min(point_to_segment_distance_m(point, a, b) for a, b in zip(polyline, polyline[1:]))
+
+
+def retraces_same_road(path, start, end):
+    tip = max(range(start, end + 1), key=lambda k: distance_m(path[start], path[k]))
+    outbound = path[start:tip + 1]
+    inbound = path[tip:end + 1]
+    near = sum(1 for point in outbound if distance_to_polyline_m(point, inbound) <= SPUR_RETRACE_RADIUS_M)
+    return near >= SPUR_RETRACE_SHARE * len(outbound)
+
+
+def detour_serves_a_stop(path, start, end, stop_points):
+    detour = path[start:end + 1]
+    return any(
+        distance_to_polyline_m(stop, detour) + STOP_ON_DETOUR_MARGIN_M < point_to_segment_distance_m(stop, path[start], path[end])
+        for stop in stop_points
+    )
+
+
+def is_removable_detour(path, start, end, stop_points):
+    return retraces_same_road(path, start, end) or not detour_serves_a_stop(path, start, end, stop_points)
+
+
+def find_detour_end(path, cumulative, start, stop_points):
+    candidates = []
+    j = start + 2
+    while j < len(path) and cumulative[j] - cumulative[start] <= DETOUR_MAX_LENGTH_M:
+        length = cumulative[j] - cumulative[start]
+        chord = distance_m(path[start], path[j])
+        if length >= DETOUR_MIN_LENGTH_M and chord <= DETOUR_MAX_CHORD_M and length >= DETOUR_MIN_LENGTH_RATIO * chord:
+            candidates.append(j)
+        j += 1
+    for end in reversed(candidates):
+        if is_removable_detour(path, start, end, stop_points):
+            return end
+    return None
+
+
+def remove_detours(path, stop_points):
+    """Remove detours the router makes only because a stop coordinate lies off the bus corridor.
+
+    A detour leaves the path and rejoins it within DETOUR_MAX_CHORD_M after travelling at least
+    DETOUR_MIN_LENGTH_RATIO times that distance. It is cut when it comes back along the same road (a spur into
+    a side street) or when no stop lies on it (a loop around a block to approach a stop from the other side).
+    Loops that pass a stop, such as one-way streets around Pettah, are kept.
+    """
+    cumulative = cumulative_distances_m(path)
+    kept_path = []
+    i = 0
+    while i < len(path):
+        kept_path.append(path[i])
+        detour_end = find_detour_end(path, cumulative, i, stop_points)
+        i = detour_end if detour_end is not None else i + 1
+    return kept_path
 
 
 def local_xy_m(point, origin):
@@ -118,28 +194,48 @@ def simplify_keep(path, keep_indices, tolerance_m):
     return simplified, [new_index[i] for i in keep_indices]
 
 
+def on_road_stop_positions(legs):
+    positions = {}
+    for leg_key, stop_names in LEG_STOPS.items():
+        path = legs[leg_key]["path"]
+        for name, vertex in zip(stop_names, legs[leg_key]["stopVertex"]):
+            positions.setdefault(name, []).append(path[vertex])
+    return {
+        name: [round(sum(p[0] for p in points) / len(points), 6), round(sum(p[1] for p in points) / len(points), 6)]
+        for name, points in positions.items()
+    }
+
+
 def build_geometry():
     legs = {}
     for leg_key, stop_names in LEG_STOPS.items():
-        path, snapped, leg_distances_km = fetch_route(DRIVING_ROUTER_URL, stop_names)
-        stop_vertices = find_stop_vertices(path, snapped)
-        simplified, simplified_stop_vertices = simplify_keep(path, stop_vertices, SIMPLIFY_TOLERANCE_M)
+        stop_coordinates = [STOP_COORDINATES[name] for name in stop_names]
+        path, _ = fetch_route(DRIVING_ROUTER_URL, stop_coordinates)
+        corridor_path = remove_detours(path, stop_coordinates)
+        corridor_stop_vertices = find_stop_vertices(corridor_path, stop_coordinates)
+        simplified, simplified_stop_vertices = simplify_keep(corridor_path, corridor_stop_vertices, SIMPLIFY_TOLERANCE_M)
+        cumulative = cumulative_distances_m(simplified)
         legs[leg_key] = {
             "path": simplified,
             "stopVertex": simplified_stop_vertices,
-            "roadSegmentKm": [round(d, 2) for d in leg_distances_km],
+            "roadSegmentKm": [
+                round((cumulative[b] - cumulative[a]) / 1000.0, 2)
+                for a, b in zip(simplified_stop_vertices, simplified_stop_vertices[1:])
+            ],
         }
-        print(f"{leg_key}: {len(path)} -> {len(simplified)} vertices, road km {legs[leg_key]['roadSegmentKm']}")
+        print(f"{leg_key}: {len(path)} -> {len(corridor_path)} after spur removal -> {len(simplified)} vertices, road km {legs[leg_key]['roadSegmentKm']}")
 
-    walk_path, _, walk_km = fetch_route(WALKING_ROUTER_URL, ["Borella 02 (YMBA)", "Borella (Singer Mega)"])
+    stops = on_road_stop_positions(legs)
+    walk_path, _ = fetch_route(WALKING_ROUTER_URL, [stops["Borella 02 (YMBA)"], stops["Borella (Singer Mega)"]])
     walk_simplified, _ = simplify_keep(walk_path, [0, len(walk_path) - 1], 2.0)
-    print(f"Borella walk: {walk_km[0] * 1000:.0f} m")
+    walk_m = cumulative_distances_m(walk_path)[-1]
+    print(f"Borella walk: {walk_m:.0f} m")
 
     return {
-        "source": "Stops: OpenStreetMap Nominatim. Roads: OSRM (OpenStreetMap data). Display only.",
-        "stops": {name: list(coord) for name, coord in STOP_COORDINATES.items()},
+        "source": "Stops: OpenStreetMap Nominatim, moved onto the bus corridor. Roads: OSRM (OpenStreetMap data). Display only.",
+        "stops": stops,
         "legs": legs,
-        "borellaWalk": {"path": walk_simplified, "distanceM": round(walk_km[0] * 1000)},
+        "borellaWalk": {"path": walk_simplified, "distanceM": round(walk_m)},
     }
 
 
