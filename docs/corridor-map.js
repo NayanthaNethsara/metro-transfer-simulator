@@ -324,7 +324,7 @@
     const inspectorEl = createElement("map-card trip-inspector", "");
     const hudEl = createElement("map-card network-hud", "");
     const insetEl = createElement("map-card borella-inset", `
-      <div class="overlay-title">Borella interchange <span class="overlay-hint">${geo.borellaWalk.distanceM} m walk (OSM)</span></div>
+      <div class="overlay-title">Borella interchange <span class="overlay-hint">${geo.borellaWalk.distanceM} m walk via Baseline Road</span></div>
       <div class="borella-map"></div>
       <div class="hold-bar"><div class="hold-bar-fill"></div><span class="hold-bar-label"></span></div>
       <ul class="inset-events"></ul>

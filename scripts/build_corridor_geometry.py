@@ -1,7 +1,9 @@
 """Build docs/corridor-geo.js: road-following geometry for the web demo map.
 
 Stop coordinates were geocoded with OpenStreetMap Nominatim. Road paths come from the
-public OSRM driving router (motorways excluded) and the OSM foot router for the Borella walk.
+public OSRM driving router (motorways excluded). The Borella walk follows Baseline Road to
+Senanayake Junction and then the CM01 road, as on the LMT-GO app map; the OSM foot router
+detours through side streets because it does not treat that stretch of Baseline Road as walkable.
 Geometry is for display only; the simulator still uses the segment distances in docs/config.js.
 """
 
@@ -36,7 +38,7 @@ LEG_STOPS = {
 }
 
 DRIVING_ROUTER_URL = "https://router.project-osrm.org/route/v1/driving/{coords}?overview=full&geometries=geojson"
-WALKING_ROUTER_URL = "https://routing.openstreetmap.de/routed-foot/route/v1/driving/{coords}?overview=full&geometries=geojson"
+SENANAYAKE_JUNCTION = (6.911237, 79.877535)  # Baseline Road x D. S. Senanayake Mawatha (vertex of the CM03 road path)
 SIMPLIFY_TOLERANCE_M = 6.0
 DETOUR_MAX_CHORD_M = 200.0
 DETOUR_MIN_LENGTH_M = 60.0
@@ -226,8 +228,7 @@ def build_geometry():
         print(f"{leg_key}: {len(path)} -> {len(corridor_path)} after spur removal -> {len(simplified)} vertices, road km {legs[leg_key]['roadSegmentKm']}")
 
     stops = on_road_stop_positions(legs)
-    walk_path, _ = fetch_route(WALKING_ROUTER_URL, [stops["Borella 02 (YMBA)"], stops["Borella (Singer Mega)"]])
-    walk_simplified, _ = simplify_keep(walk_path, [0, len(walk_path) - 1], 2.0)
+    walk_path = [tuple(stops["Borella 02 (YMBA)"]), SENANAYAKE_JUNCTION, tuple(stops["Borella (Singer Mega)"])]
     walk_m = cumulative_distances_m(walk_path)[-1]
     print(f"Borella walk: {walk_m:.0f} m")
 
@@ -235,7 +236,7 @@ def build_geometry():
         "source": "Stops: OpenStreetMap Nominatim, moved onto the bus corridor. Roads: OSRM (OpenStreetMap data). Display only.",
         "stops": stops,
         "legs": legs,
-        "borellaWalk": {"path": walk_simplified, "distanceM": round(walk_m)},
+        "borellaWalk": {"path": walk_path, "distanceM": round(walk_m)},
     }
 
 

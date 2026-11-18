@@ -80,7 +80,7 @@ where $w$ is the walk between the two Borella stops, $W_i$ is the wait at the co
 | $\alpha_\ell$ | Leg bus speed scaling factor | - | Calibrated per leg | Bisection against published timetable |
 | $d$ | Stop-to-stop road distances | km | Per leg (see `docs/config.js`) | OSRM routing on OpenStreetMap between geocoded stops |
 | $\lambda_\ell$ | Borella position between timepoints | - | 0.509, 0.435, 0.764, 0.254 | Derived from road distances |
-| $w$ | Borella interchange walking time | min | 3.5 (2.0-6.5 swept) | Placeholder pending field survey; OSM walking route between geocoded stops is 536 m (about 6.5 min) |
+| $w$ | Borella interchange walking time | min | 3.5 (2.0-6.5 swept) | Placeholder; the walk along Baseline Road via Senanayake Junction is about 370 m (about 4.4-5.1 min at 1.2-1.4 m/s, plus a road crossing) |
 | $m_f$ | Mean transfer passengers per feeder trip | pax/trip | 5.0 (3.0-8.0 swept) | Synthetic assumption |
 | $P$ | Passenger patience after a missed or refused boarding | min | 60 (30-120 swept) | Assumption: about one off-peak headway |
 | $V$ | Part-paid ticket validity | min | 120 | Proposed fare-integration rule |

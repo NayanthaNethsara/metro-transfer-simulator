@@ -23,6 +23,13 @@ Columns are timetable timepoints only. Borella is not a published timepoint and 
 
 - Timetables: LMT-GO mobile app (Lanka Metro Transit), accessed 2026-11-10, cross-checked against `https://metrobus.lk`. Factual schedule data reproduced for non-commercial research use with attribution.
 
+## Borella interchange
+
+- **Two stops:** CM03 (Kadawatha-Makumbura) stops at Borella 02 (YMBA) on Baseline Road; CM01 (Makumbura-Fort) stops at Borella (Singer Mega) at Senanayake Junction. Confirmed from the route map in the LMT-GO app on 2026-11-19.
+- **Walk:** about 370 m along Baseline Road via Senanayake Junction (road geometry from OpenStreetMap). The notebook uses a 3.5 min placeholder and sweeps 2.0-6.5 min in the sensitivity analysis.
+- **Current operation:** Metro buses do not wait at Borella when running early (author's observation); holding is the policy this project proposes.
+- **Stop positions and road distances:** geocoded with OpenStreetMap Nominatim and routed with OSRM (`scripts/build_corridor_geometry.py`). OpenStreetMap data is available under the Open Database License (ODbL).
+
 ## traffic/
 
 Colombo road corridor speed profiles are extracted from the Colombo Traffic Index open dataset (`https://github.com/nuuuwan/cmb_traffic`, MIT License) for the three covered sub-corridors (`Kiribathgoda-Dematagoda`, `Dematagoda-Borella`, `Fort-Borella` in both directions) using `scripts/extract_cmb_traffic.py`:
