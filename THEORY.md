@@ -80,12 +80,15 @@ where $w$ is the walk between the two Borella stops, $W_i$ is the wait at the co
 |---|---|---|---|---|
 | $C$ | Bus passenger capacity | pax | 80 | LMT-GO bus specification |
 | $\lambda_{s,0}$ | Base stop arrival rates | pax/min | 0.20-1.30 per stop | Assumption, scaled so the busiest buses fill at peak (author's observation) |
+| $m(t)$ | Peak and off-peak demand multipliers | - | 1.35, 0.85 | Assumption |
+| - | Peak windows | HH:MM | 07:00-09:00, 16:00-19:00 | Slowest hours in `cmb_traffic`; used for traffic bands and demand |
+| $\sigma_{\text{eta}}$ | Real-time ETA error (standard deviation) | min | 1.0 (0-4 tested) | Assumption |
 | $t_{\text{door}}, t_{\text{alight}}, t_{\text{board}}$ | Door dead time, alighting, boarding rates | s, s/pax | 12.0, 2.0, 2.0 | Assumption; boarding is quick because fares are collected on board after boarding (author's observation) |
 | $v^{(b)}_0, v^{(b)}_1, v^{(b)}_2$ | Speeds in Free, Slow, Jammed states per time band | km/h | 28.8-35.8, 22.7-27.0, 17.5-18.9 | Mean observed `cmb_traffic` speed in each state and band |
 | $\hat{P}^{(b)}$ | 30-min traffic transition matrices (5 bands) | - | See `data/traffic/traffic_transitions.csv` | Maximum-likelihood estimate from consecutive `cmb_traffic` observations |
 | $\alpha_\ell$ | Leg bus speed scaling factor | - | Calibrated per leg | Bisection to zero mean Borella delay against scheduled run times |
 | $d$ | Stop-to-stop road distances | km | Per leg (see `docs/config.js`) | OSRM routing on OpenStreetMap between geocoded stops |
-| $\lambda_\ell$ | Borella position between timepoints | - | 0.509, 0.435, 0.764, 0.254 | Derived from road distances |
+| $f_\ell$ | Borella position along the leg (CM01 to Pettah, CM01 to Makumbura, CM03 to Kadawatha, CM03 to Makumbura) | - | 0.746, 0.253, 0.519, 0.478 | Derived from road distances |
 | $w$ | Borella interchange walking time | min | 3.5 (2.0-6.5 swept) | Placeholder; the walk along Baseline Road via Senanayake Junction is about 370 m (about 4.4-5.1 min at 1.2-1.4 m/s, plus a road crossing) |
 | $m_f$ | Mean transfer passengers per feeder trip | pax/trip | 5.0 (3.0-8.0 swept) | Synthetic assumption |
 | $P$ | Passenger patience after a missed or refused boarding | min | 20 (10-30 swept) | Assumption: author's observation that passengers wait 10-20 min at most |
