@@ -13,9 +13,9 @@
 <body>
   <header>
     <div class="header-title-block">
-      <h1>Metro Transfer Simulator // Borella Interchange Control</h1>
-      <p>Stop-by-stop discrete-event simulation of Lanka Metro Transit routes CM01 and CM03 (Kadawatha - Pettah through-ticket).</p>
-      <div class="alpha-line" id="alphaReadout">CALIBRATING PER-LEG ALPHA...</div>
+      <h1>Metro Transfer Simulator</h1>
+      <p>CM01 &amp; CM03 Borella interchange discrete-event model (Kadawatha&#8211;Pettah)</p>
+      <div class="alpha-line" id="alphaReadout">Calibrating alpha...</div>
     </div>
     <div class="header-badges">
       <div class="badge-pill"><span class="badge-dot" id="dotCm01"></span><span id="trafficBadgeCm01">CM01: FREE</span></div>
@@ -28,29 +28,27 @@
     <aside class="panel" aria-label="Simulation Controls">
       <div class="control-group">
         <div class="section-header">
-          <h2 class="section-title">01. Scenario Presets</h2>
-          <span class="section-hint">ONE-CLICK</span>
+          <h2 class="section-title">01. Presets</h2>
         </div>
         <div class="preset-row">
           <button type="button" class="preset-btn" data-preset="baseline">
-            <span class="p-name">01. BASELINE</span>
-            <span class="p-sub">none | h=0m</span>
+            <span class="p-name">01. Baseline</span>
+            <span class="p-sub">none, h = 0m</span>
           </button>
           <button type="button" class="preset-btn" data-preset="sched5">
-            <span class="p-name">02. SCHED HOLD 5M</span>
-            <span class="p-sub">sched | h=5m</span>
+            <span class="p-name">02. Sched Hold</span>
+            <span class="p-sub">sched, h = 5m</span>
           </button>
           <button type="button" class="preset-btn active" data-preset="realtime">
-            <span class="p-name">03. RECOMMENDED</span>
-            <span class="p-sub">eta h=5m | no shift</span>
+            <span class="p-name">03. Recommended</span>
+            <span class="p-sub">ETA h = 5m</span>
           </button>
         </div>
       </div>
 
       <div class="control-group">
         <div class="section-header">
-          <h2 class="section-title">02. Dispatch &amp; Holding Policy</h2>
-          <span class="section-hint">BORELLA HUB</span>
+          <h2 class="section-title">02. Borella Holding</h2>
         </div>
 
         <label class="field-label" for="policy">Borella holding rule</label>
@@ -93,8 +91,7 @@
 
       <div class="control-group">
         <div class="section-header">
-          <h2 class="section-title">03. Corridor &amp; Fleet Parameters</h2>
-          <span class="section-hint">PHYSICAL</span>
+          <h2 class="section-title">03. Corridor &amp; Fleet</h2>
         </div>
 
         <label class="field-label" for="walkTime">
@@ -114,8 +111,7 @@
 
       <div class="control-group">
         <div class="section-header">
-          <h2 class="section-title">04. Monte Carlo Execution</h2>
-          <span class="section-hint">ENSEMBLE</span>
+          <h2 class="section-title">04. Monte Carlo</h2>
         </div>
 
         <label class="field-label" for="animSpeed">
@@ -144,15 +140,15 @@
       </div>
 
       <details>
-        <summary>About / How to Use &amp; Model Rules</summary>
-        <p>The browser runs the same model as the notebook (<code>docs/sim-engine.js</code>): timetables, OpenStreetMap road distances, dwell coefficients, Markov traffic speeds and the per-leg speed factors (alpha) calibrated in the notebook are in <code>docs/config.js</code>. Stop locations and road paths on the map come from OpenStreetMap (<code>docs/corridor-geo.js</code>).</p>
+        <summary>About &amp; Model Rules</summary>
+        <p>Client-side port (<code>docs/sim-engine.js</code>) using notebook-calibrated <code>alpha</code> factors, OSM/OSRM geometry (<code>docs/corridor-geo.js</code>), and 5-band <code>cmb_traffic</code> Markov speeds (<code>docs/config.js</code>).</p>
         <ul>
-          <li><strong>Interactive inspection:</strong> Hover or click any bus on the map (buses keep to the left lane of their direction), any row in the Connector table, or any item in the Transfer Log to jump directly to that Borella event.</li>
-          <li><strong>Dwell formula:</strong> (12 s + 2 s * alight + 2 s * board) / 60.</li>
-          <li><strong>Traffic DTMC:</strong> 3-state Markov chain (free, slow, jammed) with 30-min steps; transition matrices and state speeds for five time-of-day bands are estimated from the cmb_traffic travel-time data (peaks 07:00-09:00 and 16:00-19:00). Traffic is free until 05:00, the first hour of data.</li>
-          <li><strong>Boarding at Borella:</strong> local and through-ticket passengers board first come, first served, up to the bus capacity. A passenger who misses a bus waits for the next one only if it is due within 20 min (patience) and within 120 min of reaching Borella (ticket validity); otherwise they leave for other transport.</li>
-          <li><strong>Objective J:</strong> 2.0 * (walk + wait at Borella, plus 60 min for each passenger lost to other transport or with no connection that day) + 1.0 * on-board hold pax-min.</li>
-          <li><strong>Notebook check:</strong> with a preset and default walk and capacity, the Mean Missed card compares this run with the notebook reference result (R = 1000 days) and states whether it is within tolerance.</li>
+          <li><strong>Inspection:</strong> Click any bus, table row, or log item to jump to that Borella event.</li>
+          <li><strong>Dwell:</strong> <code>(12 + 2 * alight + 2 * board) / 60</code> min.</li>
+          <li><strong>Traffic:</strong> 3-state DTMC (30-min slots; peaks 07:00&#8211;09:00, 16:00&#8211;19:00; free before 05:00).</li>
+          <li><strong>Queueing:</strong> FCFS Borella boarding; patience 20 min, ticket validity 120 min.</li>
+          <li><strong>Objective J:</strong> <code>2.0 * (walk + wait + 60m lost penalty) + 1.0 * hold</code> pax-min.</li>
+          <li><strong>Check:</strong> Preset runs compare Mean Missed against <code>R=1000</code> notebook references (&plusmn;2.0 pp).</li>
         </ul>
       </details>
     </aside>
@@ -187,20 +183,19 @@
           <div class="k">Transfers Missed (Today)</div>
           <div class="v bad" id="outTodayMissed">0</div>
           <div class="kpi-bar"><div class="kpi-bar-fill bad" id="barTodayMissed"></div></div>
-          <div class="kpi-sub" id="subTodayMissed">Timing or capacity spill</div>
+          <div class="kpi-sub" id="subTodayMissed">Timing / capacity</div>
         </div>
         <div class="stat-card">
           <div class="k">Active on Network</div>
           <div class="v" id="outActive">0 buses / 0 pax</div>
           <div class="kpi-bar"><div class="kpi-bar-fill" id="barActive"></div></div>
-          <div class="kpi-sub" id="subActive">0 pax walking at Borella</div>
+          <div class="kpi-sub" id="subActive">0 walking</div>
         </div>
         <div class="stat-card">
           <div class="k">Mean Missed (95% CI)</div>
           <div class="v" id="outMissAll">-</div>
           <div class="kpi-bar"><div class="kpi-bar-fill warn" id="barMissAll"></div></div>
-          <div class="kpi-sub" id="subMissAll">Across completed days</div>
-          <div class="kpi-sub" id="referenceCheck">Notebook check: run days to compare.</div>
+          <div class="kpi-sub" id="subMissAll">Completed days</div>
         </div>
         <div class="stat-card">
           <div class="k">Group A vs Group B Miss</div>
@@ -253,6 +248,8 @@
           <ul class="log-list" id="eventLogList"></ul>
         </div>
       </div>
+
+      <div class="ref-strip" id="referenceCheck">Notebook check: run 300+ days to compare.</div>
     </section>
   </div>
 

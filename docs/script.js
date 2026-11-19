@@ -119,8 +119,8 @@
   function updateAlphaReadout() {
     const a = REF.calibratedAlphas;
     $("alphaReadout").textContent =
-      `NOTEBOOK-CALIBRATED ALPHA // CM01 MAK-PET ${a.CM01_MAK_to_FOR.toFixed(3)} | CM01 PET-MAK ${a.CM01_FOR_to_MAK.toFixed(3)} | ` +
-      `CM03 MAK-KAD ${a.CM03_MAK_to_KAD.toFixed(3)} | CM03 KAD-MAK ${a.CM03_KAD_to_MAK.toFixed(3)}`;
+      `alpha: CM01 ${a.CM01_MAK_to_FOR.toFixed(3)} / ${a.CM01_FOR_to_MAK.toFixed(3)} | ` +
+      `CM03 ${a.CM03_MAK_to_KAD.toFixed(3)} / ${a.CM03_KAD_to_MAK.toFixed(3)}`;
   }
 
   function matchingReferenceScenario(params) {
@@ -140,19 +140,19 @@
     const el = $("referenceCheck");
     const sc = matchingReferenceScenario(params);
     if (!sc) {
-      el.textContent = "Notebook check: choose a preset with default walk and capacity to compare.";
-      el.className = "kpi-sub";
+      el.textContent = "Notebook check: select a preset with default walk (5.0 m) & capacity (80) to compare.";
+      el.className = "ref-strip";
       return;
     }
     if (!mAll || state.missAllHistory.length < REF.minDaysForCheck) {
-      el.textContent = `Notebook (${sc.label}): ${sc.missAllPct.toFixed(2)}% +/- ${sc.missAllCi95.toFixed(2)}. Run ${REF.minDaysForCheck}+ days to compare.`;
-      el.className = "kpi-sub";
+      el.textContent = `Notebook (${sc.label}): ${sc.missAllPct.toFixed(2)}% +/- ${sc.missAllCi95.toFixed(2)}% (run ${REF.minDaysForCheck}+ days to compare)`;
+      el.className = "ref-strip";
       return;
     }
     const diff = mAll.mean - sc.missAllPct;
     const pass = Math.abs(diff) <= REF.tolerancePp;
-    el.textContent = `Notebook ${sc.missAllPct.toFixed(2)}% vs web ${mAll.mean.toFixed(2)}%: diff ${diff >= 0 ? "+" : ""}${diff.toFixed(2)} pp (tolerance +/-${REF.tolerancePp.toFixed(1)} pp) ${pass ? "PASS" : "OUTSIDE"}`;
-    el.className = `kpi-sub ${pass ? "ref-pass" : "ref-fail"}`;
+    el.textContent = `Notebook ${sc.missAllPct.toFixed(2)}% vs web ${mAll.mean.toFixed(2)}% (${diff >= 0 ? "+" : ""}${diff.toFixed(2)} pp, tol +/-${REF.tolerancePp.toFixed(1)} pp) - ${pass ? "PASS" : "OUTSIDE"}`;
+    el.className = `ref-strip ${pass ? "ref-pass" : "ref-fail"}`;
   }
 
   function summariseDayAt(day, tNow) {
@@ -262,7 +262,7 @@
       ctx.fillStyle = muted;
       ctx.font = "500 11px 'IBM Plex Sans', sans-serif";
       const message = state.currentDay
-        ? `Day 1 preview: ${state.currentDay.missRateAllPct.toFixed(1)}% missed. Press +1 Day or Run All R to build the estimate.`
+        ? `Day 1 preview (${state.currentDay.missRateAllPct.toFixed(1)}% missed). Run +1 Day or Run All R.`
         : "Run days to build the estimate.";
       ctx.fillText(message, plot.left + 12, plot.top + plotH / 2);
       return;
@@ -354,15 +354,18 @@
     ctx.fillStyle = readCssVar("--color-border", "#27272a");
     ctx.fillRect(barX, barY, barW, barH);
     let cursorX = barX;
+    const barRight = barX + barW;
     for (const part of parts) {
-      const segW = totalJ > 0 ? (part.value / totalJ) * barW : 0;
+      const segW = totalJ > 0 ? Math.min((part.value / totalJ) * barW, barRight - cursorX) : 0;
       if (segW <= 0) continue;
       ctx.fillStyle = part.color;
       ctx.fillRect(cursorX, barY, segW, barH);
       cursorX += segW;
-      ctx.fillStyle = surface;
-      ctx.fillRect(cursorX, barY, 2, barH);
-      cursorX += 2;
+      if (cursorX + 2 < barRight) {
+        ctx.fillStyle = surface;
+        ctx.fillRect(cursorX, barY, 2, barH);
+        cursorX += 2;
+      }
     }
 
     parts.forEach((part, i) => {
@@ -447,7 +450,7 @@
 
     $("outActive").textContent = `${activeBuses} buses / ${walkingPax} pax`;
     $("barActive").style.width = `${Math.min(100, (activeBuses / 16) * 100).toFixed(1)}%`;
-    $("subActive").textContent = `${walkingPax} pax walking at Borella`;
+    $("subActive").textContent = `${walkingPax} walking`;
 
     if (state.missAllHistory.length > 0) {
       const mAll = computeMeanAndCi(state.missAllHistory);
@@ -459,7 +462,7 @@
 
       $("outMissAll").textContent = `${mAll.mean.toFixed(1)}% +/- ${mAll.ci.toFixed(1)}%`;
       $("barMissAll").style.width = `${Math.min(100, mAll.mean).toFixed(1)}%`;
-      $("subMissAll").textContent = `Over ${state.missAllHistory.length} / ${params.repTotal} days | lost to other transport ${computeMeanAndCi(state.lostHistory).mean.toFixed(1)}%`;
+      $("subMissAll").textContent = `${state.missAllHistory.length}/${params.repTotal} days | lost ${computeMeanAndCi(state.lostHistory).mean.toFixed(1)}%`;
       renderReferenceCheck(params, mAll);
 
       $("outMissAB").textContent = `A: ${mA.mean.toFixed(1)}% | B: ${mB.mean.toFixed(1)}%`;
@@ -472,7 +475,7 @@
     } else if (day) {
       $("outMissAll").textContent = `${day.missRateAllPct.toFixed(1)}% (Day 1)`;
       $("barMissAll").style.width = `${Math.min(100, day.missRateAllPct).toFixed(1)}%`;
-      $("subMissAll").textContent = "Day 1 preview (click +1 Day or Run All R)";
+      $("subMissAll").textContent = "Day 1 preview";
       renderReferenceCheck(params, null);
 
       $("outMissAB").textContent = `A: ${day.missRateAPct.toFixed(1)}% | B: ${day.missRateBPct.toFixed(1)}%`;

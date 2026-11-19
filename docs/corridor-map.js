@@ -258,7 +258,7 @@
     for (const name of Object.keys(BASEMAPS)) {
       baseLayers[name] = createBasemapLayer(name);
     }
-    baseLayers.Dark.addTo(map);
+    baseLayers.Light.addTo(map);
 
     for (const legKey of CONNECTOR_LEGS) {
       L.polyline(legGeometry[legKey].latlngs, {
@@ -351,7 +351,7 @@
       zoomSnap: 0.25
     });
     insetMap.createPane("walkerPane").style.zIndex = 460;
-    let insetBaseLayer = createBasemapLayer("Dark").addTo(insetMap);
+    let insetBaseLayer = createBasemapLayer("Light").addTo(insetMap);
     map.on("baselayerchange", (e) => {
       insetMap.removeLayer(insetBaseLayer);
       insetBaseLayer = createBasemapLayer(e.name).addTo(insetMap);

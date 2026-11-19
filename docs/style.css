@@ -1,25 +1,26 @@
 :root {
-  --color-bg: #09090b;
-  --color-surface: #121214;
-  --color-surface-subtle: #18181b;
-  --color-surface-elevated: #222226;
-  --color-border: #27272a;
-  --color-border-strong: #3f3f46;
-  --color-ink: #fafafa;
-  --color-ink-secondary: #d4d4d8;
-  --color-muted: #71717a;
-  --color-primary: #f4f4f5;
-  --color-primary-ink: #09090b;
-  --color-primary-hover: #e4e4e7;
-  --color-success: #22c55e;
-  --color-warning: #eab308;
-  --color-danger: #f43f5e;
-  --route-cm01: #1d9bd6;
-  --route-cm03: #a855f7;
-  --state-free: #0f9d6e;
-  --state-slow: #d6a10a;
-  --state-jammed: #e5484d;
-  --cost-wait: #94a3b8;
+  color-scheme: light;
+  --color-bg: #f6f7f9;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f1f5f9;
+  --color-surface-elevated: #e2e8f0;
+  --color-border: #cbd5e1;
+  --color-border-strong: #94a3b8;
+  --color-ink: #0f172a;
+  --color-ink-secondary: #334155;
+  --color-muted: #475569;
+  --color-primary: #0f172a;
+  --color-primary-ink: #ffffff;
+  --color-primary-hover: #1e293b;
+  --color-success: #15803d;
+  --color-warning: #b45309;
+  --color-danger: #be123c;
+  --route-cm01: #0369a1;
+  --route-cm03: #7e22ce;
+  --state-free: #047857;
+  --state-slow: #b45309;
+  --state-jammed: #be123c;
+  --cost-wait: #475569;
   --radius: 0px;
   --font-heading: "Space Grotesk", system-ui, -apple-system, sans-serif;
   --font-body: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
@@ -145,9 +146,10 @@ header {
 }
 
 .panel {
+  min-width: 0;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  padding: 18px;
+  padding: 16px;
 }
 
 .section-header {
@@ -502,13 +504,13 @@ input[type="number"]:focus {
 }
 
 .map-card {
-  background: rgba(18, 18, 20, 0.92);
+  background: rgba(255, 255, 255, 0.94);
   border: 1px solid var(--color-border);
   padding: 10px 12px;
   color: var(--color-ink);
   font-size: 0.75rem;
   line-height: 1.45;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.1);
   backdrop-filter: blur(4px);
 }
 
@@ -534,7 +536,7 @@ input[type="number"]:focus {
 }
 
 .trip-inspector {
-  width: 270px;
+  width: 248px;
 }
 
 .inspector-trip {
@@ -614,15 +616,15 @@ input[type="number"]:focus {
 }
 
 .regime-pill.peak {
-  color: #fca5a5;
+  color: var(--state-jammed);
   border-color: var(--state-jammed);
-  background: rgba(229, 72, 77, 0.14);
+  background: rgba(190, 18, 60, 0.08);
 }
 
 .regime-pill.offpeak {
-  color: #6ee7b7;
+  color: var(--state-free);
   border-color: var(--state-free);
-  background: rgba(15, 157, 110, 0.14);
+  background: rgba(4, 120, 87, 0.08);
 }
 
 .hud-traffic {
@@ -664,11 +666,11 @@ input[type="number"]:focus {
 }
 
 .borella-inset {
-  width: 292px;
+  width: 268px;
 }
 
 .borella-map {
-  height: 180px;
+  height: 155px;
   border: 1px solid var(--color-border);
 }
 
@@ -709,12 +711,24 @@ input[type="number"]:focus {
   color: var(--color-ink-secondary);
 }
 
-.kpi-sub.ref-pass {
+.kpi-sub.ref-pass,
+.ref-strip.ref-pass {
   color: var(--color-success);
 }
 
-.kpi-sub.ref-fail {
+.kpi-sub.ref-fail,
+.ref-strip.ref-fail {
   color: var(--color-danger);
+}
+
+.ref-strip {
+  margin-top: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-subtle);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--color-muted);
 }
 
 .outcome.made {
@@ -726,7 +740,7 @@ input[type="number"]:focus {
 }
 
 .map-legend {
-  width: 230px;
+  width: 215px;
 }
 
 .legend-subtitle {
@@ -758,8 +772,8 @@ input[type="number"]:focus {
   width: 18px;
   height: 9px;
   border-radius: 2px;
-  border: 1.5px solid var(--color-bg);
-  box-shadow: 0 0 0 1px rgba(250, 250, 250, 0.4);
+  border: 1.5px solid var(--color-surface);
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.35);
   background: var(--route-color);
 }
 
@@ -800,17 +814,13 @@ input[type="number"]:focus {
   border: 1px solid var(--color-border);
 }
 
-.leaflet-control-layers-toggle {
-  filter: invert(1);
-}
-
 .leaflet-control-layers-expanded {
   padding: 8px 10px;
   font-size: 0.75rem;
 }
 
 .leaflet-container .leaflet-control-attribution {
-  background: rgba(9, 9, 11, 0.75);
+  background: rgba(255, 255, 255, 0.88);
   color: var(--color-muted);
 }
 
@@ -819,17 +829,17 @@ input[type="number"]:focus {
 }
 
 .leaflet-control-scale-line {
-  background: rgba(9, 9, 11, 0.75);
-  color: var(--color-ink-secondary);
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--color-ink);
   border-color: var(--color-ink-secondary);
 }
 
 .leaflet-tooltip.stop-label {
   padding: 2px 6px;
-  background: rgba(9, 9, 11, 0.85);
+  background: rgba(255, 255, 255, 0.94);
   color: var(--color-ink);
   border: 1px solid var(--color-border-strong);
-  box-shadow: none;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
   font-size: 0.7rem;
   font-weight: 600;
 }
@@ -851,8 +861,8 @@ input[type="number"]:focus {
   height: 10px;
   border-radius: 3px;
   background: var(--route-color);
-  border: 1.5px solid var(--color-bg);
-  box-shadow: 0 0 0 1px rgba(250, 250, 250, 0.4), 0 2px 6px rgba(0, 0, 0, 0.5);
+  border: 1.5px solid var(--color-surface);
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.35), 0 2px 5px rgba(15, 23, 42, 0.25);
 }
 
 .bus-body::after {
@@ -863,7 +873,7 @@ input[type="number"]:focus {
   bottom: 1px;
   width: 4px;
   border-radius: 1px;
-  background: rgba(9, 9, 11, 0.7);
+  background: rgba(255, 255, 255, 0.85);
 }
 
 .bus-load {
@@ -872,7 +882,7 @@ input[type="number"]:focus {
   top: 1px;
   width: 18px;
   height: 3px;
-  background: rgba(9, 9, 11, 0.85);
+  background: rgba(15, 23, 42, 0.2);
 }
 
 .bus-load i {
@@ -898,12 +908,12 @@ input[type="number"]:focus {
 }
 
 .bus-marker.is-selected .bus-body {
-  box-shadow: 0 0 0 2px var(--color-ink), 0 2px 6px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 2px var(--color-ink), 0 2px 6px rgba(15, 23, 42, 0.3);
 }
 
 @keyframes hold-pulse {
   50% {
-    box-shadow: 0 0 0 4px rgba(234, 179, 8, 0.35), 0 2px 6px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 0 0 4px rgba(180, 83, 9, 0.35), 0 2px 6px rgba(15, 23, 42, 0.25);
   }
 }
 
@@ -914,11 +924,11 @@ input[type="number"]:focus {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  border: 2px solid var(--color-bg);
+  border: 2px solid var(--color-surface);
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 700;
-  color: var(--color-bg);
+  color: var(--color-surface);
 }
 
 .walker.made {
@@ -942,7 +952,7 @@ input[type="number"]:focus {
   height: 270px;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 960px) {
   .corridor-map {
     height: 460px;
   }
@@ -1050,6 +1060,7 @@ input[type="number"]:focus {
 
 .table-box,
 .log-box {
+  min-width: 0;
   border: 1px solid var(--color-border);
   padding: 14px;
   max-height: 250px;
@@ -1081,7 +1092,9 @@ th {
   font-weight: 700;
   position: sticky;
   top: 0;
+  z-index: 1;
   background: var(--color-surface-subtle);
+  box-shadow: inset 0 -1px 0 var(--color-border);
 }
 
 tbody tr {
