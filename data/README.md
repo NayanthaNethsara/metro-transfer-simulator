@@ -25,7 +25,7 @@ Notes:
 ## Borella interchange
 
 - **Two stops:** CM03 (Kadawatha-Makumbura) stops at Borella 02 (YMBA) on Baseline Road; CM01 (Makumbura-Fort) stops at Borella (Singer Mega) at Senanayake Junction. Confirmed from the route map in the LMT-GO app on 2026-11-19.
-- **Walk:** about 370 m along Baseline Road via Senanayake Junction (road geometry from OpenStreetMap). The notebook uses a 3.5 min placeholder and sweeps 2.0-6.5 min in the sensitivity analysis.
+- **Walk:** about 370 m along Baseline Road via Senanayake Junction (road geometry from OpenStreetMap). The notebook uses 5.0 min (about 4.7 min at 1.3 m/s plus the junction crossing) and sweeps 2.0-6.5 min in the sensitivity analysis.
 - **Current operation:** Metro buses do not wait at Borella when running early (author's observation); holding is the policy this project proposes.
 - **Stop positions and road distances:** geocoded with OpenStreetMap Nominatim and routed with OSRM (`scripts/build_corridor_geometry.py`). OpenStreetMap data is available under the Open Database License (ODbL).
 

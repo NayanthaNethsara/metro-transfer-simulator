@@ -42,7 +42,7 @@
           </button>
           <button type="button" class="preset-btn active" data-preset="realtime">
             <span class="p-name">03. RECOMMENDED</span>
-            <span class="p-sub">eta h=5m | CM01 -5m</span>
+            <span class="p-sub">eta h=5m | no shift</span>
           </button>
         </div>
       </div>
@@ -68,7 +68,7 @@
 
         <label class="field-label" for="holdMax">
           <span>Max hold time h</span>
-          <span class="field-value" id="holdMaxVal">3.0 min</span>
+          <span class="field-value" id="holdMaxVal">5.0 min</span>
         </label>
         <input id="holdMax" type="range" min="0" max="10" step="0.5" value="5.0">
         <div class="slider-bounds"><span>0.0m (MIN)</span><span>10.0m (MAX)</span></div>
@@ -85,9 +85,9 @@
 
         <label class="field-label" for="shiftMin">
           <span>Schedule shift Delta</span>
-          <span class="field-value" id="shiftMinVal">-5 min</span>
+          <span class="field-value" id="shiftMinVal">0 min</span>
         </label>
-        <input id="shiftMin" type="range" min="-10" max="10" step="5" value="-5">
+        <input id="shiftMin" type="range" min="-10" max="10" step="5" value="0">
         <div class="slider-bounds"><span>-10m EARLIER</span><span>+10m LATER</span></div>
       </div>
 
@@ -99,9 +99,9 @@
 
         <label class="field-label" for="walkTime">
           <span>Borella walk time w</span>
-          <span class="field-value" id="walkTimeVal">3.5 min</span>
+          <span class="field-value" id="walkTimeVal">5.0 min</span>
         </label>
-        <input id="walkTime" type="range" min="1" max="7" step="0.5" value="3.5">
+        <input id="walkTime" type="range" min="1" max="7" step="0.5" value="5.0">
         <div class="slider-bounds"><span>1.0m (MIN)</span><span>7.0m (MAX)</span></div>
 
         <label class="field-label" for="capacityPax">
@@ -148,9 +148,9 @@
         <p>The browser runs the same model as the notebook (<code>docs/sim-engine.js</code>): timetables, OpenStreetMap road distances, dwell coefficients, Markov traffic speeds and the per-leg speed factors (alpha) calibrated in the notebook are in <code>docs/config.js</code>. Stop locations and road paths on the map come from OpenStreetMap (<code>docs/corridor-geo.js</code>).</p>
         <ul>
           <li><strong>Interactive inspection:</strong> Hover or click any bus on the map (buses keep to the left lane of their direction), any row in the Connector table, or any item in the Transfer Log to jump directly to that Borella event.</li>
-          <li><strong>Dwell formula:</strong> (12s + 2s * alight + 3s * board) / 60.</li>
-          <li><strong>Traffic DTMC:</strong> 3-state peak/off-peak Markov chain calibrated via stationary distribution bisection (peak 06:00-09:00 and 17:00-20:00).</li>
-          <li><strong>Boarding at Borella:</strong> local and through-ticket passengers board first come, first served, up to the bus capacity. A passenger who misses a bus waits for the next one only if it is due within 60 min (patience) and within 120 min of reaching Borella (ticket validity); otherwise they leave for other transport.</li>
+          <li><strong>Dwell formula:</strong> (12 s + 2 s * alight + 2 s * board) / 60.</li>
+          <li><strong>Traffic DTMC:</strong> 3-state Markov chain (free, slow, jammed) with 30-min steps; transition matrices and state speeds for five time-of-day bands are estimated from the cmb_traffic travel-time data (peaks 07:00-09:00 and 16:00-19:00). Traffic is free until 05:00, the first hour of data.</li>
+          <li><strong>Boarding at Borella:</strong> local and through-ticket passengers board first come, first served, up to the bus capacity. A passenger who misses a bus waits for the next one only if it is due within 20 min (patience) and within 120 min of reaching Borella (ticket validity); otherwise they leave for other transport.</li>
           <li><strong>Objective J:</strong> 2.0 * (walk + wait at Borella, plus 60 min for each passenger lost to other transport or with no connection that day) + 1.0 * on-board hold pax-min.</li>
           <li><strong>Notebook check:</strong> with a preset and default walk and capacity, the Mean Missed card compares this run with the notebook reference result (R = 1000 days) and states whether it is within tolerance.</li>
         </ul>

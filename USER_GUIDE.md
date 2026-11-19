@@ -10,12 +10,12 @@ The labels in the screenshot: (1) scenario presets, (2) holding rule and its pla
 
 | Control | What it does | Range | Default |
 |---|---|---|---|
-| 01. Scenario Presets | Loads `01. BASELINE` (`none`, `h=0`), `02. SCHED HOLD 5M` (`schedule`, `h=5`), or `03. RECOMMENDED` (`realtime`, `h=5`, CM01 towards Pettah `-5 min`) | 3 presets | `03. RECOMMENDED` |
+| 01. Scenario Presets | Loads `01. BASELINE` (`none`, `h=0`), `02. SCHED HOLD 5M` (`schedule`, `h=5`), or `03. RECOMMENDED` (`realtime`, `h=5`, no shift) | 3 presets | `03. RECOMMENDED` |
 | Borella holding rule | Segmented toggle for `NONE`, `SCHEDULE` (wait up to `h` past the connector's natural departure for every linked feeder), or `REAL-TIME` (wait only for feeders whose noisy ETA says they can make it) | 3 modes | `REAL-TIME` |
 | Max hold time `h` | Maximum Borella hold past the connector's natural departure (arrival + dwell) | `0.0` to `10.0 min` (step `0.5`) | `5.0 min` |
 | Timetable shift (connecting direction) | Segmented toggle choosing `CM03 TO KAD` (the Group B connector) or `CM01 TO PET` (the Group A connector) | 2 directions | `CM01 TO PET` |
-| Schedule shift `Delta` | Moves every departure of the selected connecting direction; the other direction keeps its timetable | `-10` to `+10 min` (step `5`) | `-5 min` (recommended) |
-| Borella walk time `w` | Walking time between `Borella 02 (YMBA)` and `Borella (Singer Mega)` | `1.0` to `7.0 min` (step `0.5`) | `3.5 min` |
+| Schedule shift `Delta` | Moves every departure of the selected connecting direction; the other direction keeps its timetable | `-10` to `+10 min` (step `5`) | `0 min` |
+| Borella walk time `w` | Walking time between `Borella 02 (YMBA)` and `Borella (Singer Mega)` | `1.0` to `7.0 min` (step `0.5`) | `5.0 min` |
 | Bus capacity `C` | Maximum passenger load per bus before local/transfer boarding spills to the next trip | `40` to `120 pax` (step `10`) | `80 pax` |
 | Playback speed | Animation speed multiplier for the daily transit map | `0.5x` to `10.0x` | `2.5x` |
 | Monte Carlo days `R` | Total number of independent simulated days in the ensemble | `20` to `500 days` | `100 days` |
@@ -35,19 +35,19 @@ The labels in the screenshot: (1) scenario presets, (2) holding rule and its pla
 
 ## Try this
 
-1. Click **01. BASELINE**, set **Monte Carlo days R** to 300, click **Run All R**, and read the missed rate: about 16.5%, and about 14% of through passengers give up and use other transport because they will not wait more than about 20 min. The notebook check underneath should say PASS.
+1. Click **01. BASELINE**, set **Monte Carlo days R** to 300, click **Run All R**, and read the missed rate: about 18%, and about 15% of through passengers give up and use other transport because they will not wait more than about 20 min. The notebook check underneath should say PASS.
 2. Click **03. RECOMMENDED**, then **08:39 TIGHT B** in the quick-jump bar. `CM01-PET-04` reaches Borella just as its connector `CM03-MAK-05` is due; without holding its passengers always miss it, so watch the connector hold (amber) in the Borella inset.
-3. With **03. RECOMMENDED** selected, click **Run All R**. The total cost `J` is the lowest of the three presets (connecting passengers wait less), but the missed rate only falls to about 15.4%. Compare **02. SCHED HOLD 5M**: fewer misses, but about two and a half times the on-board hold cost.
-4. Keep **REAL-TIME** holding at 5 min and set **Schedule shift Delta** back to `0 min` (holding alone on the current timetable): misses fall to about 12.7%, fewer than the recommended preset, for about 1.4% more `J`. This is the trade-off discussed in the notebook.
+3. With **03. RECOMMENDED** selected, click **Run All R**. The missed rate falls to about 13% and the total cost `J` is the lowest of the three presets. Compare **02. SCHED HOLD 5M**: about the same misses, but more than three times the on-board hold cost.
+4. Keep the recommended preset, choose **CM01 TO PET** and set **Schedule shift Delta** to `-5 min`: `J` stays about the same but more Kadawatha-to-Pettah passengers miss their connection. Then set **Borella walk time** to `3.5 min` with the same shift to see why the result depends on the walk.
 
 ## Check against the notebook
 
 The browser engine (`docs/sim-engine.js`) is a direct port of the notebook model: the same app timetable, OpenStreetMap road distances, Borella placement by road distance, thinning arrivals, dwell formula, traffic chain estimated from `cmb_traffic` (five time-of-day bands), first-come-first-served boarding at Borella, patience and ticket-validity rules, holding policies and objective. It uses the per-leg speed factors (`alpha`) calibrated in the notebook rather than recalibrating. The random number generators differ (`mulberry32` in the browser, NumPy PCG64 in the notebook), so individual days differ but ensemble means agree.
 
-`docs/config.js` stores five notebook reference results (R = 1000 days): Baseline `16.48 +/- 0.45%`, Hold only schedule `h = 5` `12.35 +/- 0.35%`, Hold only real-time `h = 5` `12.73 +/- 0.36%`, Recommended CM01 towards Pettah `-5 min` with real-time `h = 5` `15.43 +/- 0.43%`, and Best shift alone CM01 towards Pettah `+5 min` `15.34 +/- 0.39%`. When the current settings match one of them (with default walk time and capacity) and at least 300 days have run, the Mean Missed card shows the difference and whether it is within the stated tolerance of `+/- 2.0` percentage points. Running the browser engine for 1000 days on three seeds gave differences of `-0.12` to `+0.59` points for all five scenarios.
+`docs/config.js` stores three notebook reference results (R = 1000 days, 5-min walk): Baseline `18.16 +/- 0.48%`, Hold only schedule `h = 5` `12.71 +/- 0.37%`, and Recommended real-time `h = 5` with no shift `13.19 +/- 0.38%`. When the current settings match one of them (with default walk time and capacity) and at least 300 days have run, the Mean Missed card shows the difference and whether it is within the stated tolerance of `+/- 2.0` percentage points. Running the browser engine for 1000 days on three seeds gave differences of `+0.02` to `+0.54` points for all three scenarios.
 
 ## Limitations
 
-- Stop arrival rates, transfer demand and the Borella walk time are the same placeholders as in the notebook until field measurements are substituted in `docs/config.js`.
+- Stop arrival rates, transfer demand and bus capacity are the same assumptions as in the notebook, and the 5-min Borella walk is estimated from the map, not measured; field measurements can be substituted in `docs/config.js`.
 - Maximum replications in the interactive UI are capped at `500` days to keep the page responsive (versus `1000-2000` replications in the notebook).
 - Changing the walk time or capacity has no stored notebook reference, so the notebook check only applies to the presets with default physical parameters.

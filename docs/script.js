@@ -11,6 +11,8 @@
 
   const { createSeededRng, formatMinutesToHhmm, isPeakTime, getTrafficStateAt, simulateFullDay, computeMeanAndCi } = window.SimEngine;
   const REF = CFG.notebookReference;
+  // The J bar shows the cost as a share of today's cost (notebook baseline).
+  const BASELINE_J = REF.scenarios.find((sc) => sc.label === "Baseline").objectiveJ;
 
   const state = {
     rng: null,
@@ -465,7 +467,7 @@
       $("subMissAB").textContent = "A: KAD-PET | B: PET-KAD";
 
       $("outObjJ").textContent = `${obj.mean.toFixed(0)} +/- ${obj.ci.toFixed(0)}`;
-      $("barObjJ").style.width = `${Math.min(100, (obj.mean / 4500) * 100).toFixed(1)}%`;
+      $("barObjJ").style.width = `${Math.min(100, (obj.mean / BASELINE_J) * 100).toFixed(1)}%`;
       $("subObjJ").textContent = `Wait ${meanWait.toFixed(0)} | Hold ${meanHold.toFixed(0)}`;
     } else if (day) {
       $("outMissAll").textContent = `${day.missRateAllPct.toFixed(1)}% (Day 1)`;
@@ -478,7 +480,7 @@
       $("subMissAB").textContent = "A: KAD-PET | B: PET-KAD";
 
       $("outObjJ").textContent = `${day.objectiveJ.toFixed(0)} (Day 1)`;
-      $("barObjJ").style.width = `${Math.min(100, (day.objectiveJ / 4500) * 100).toFixed(1)}%`;
+      $("barObjJ").style.width = `${Math.min(100, (day.objectiveJ / BASELINE_J) * 100).toFixed(1)}%`;
       $("subObjJ").textContent = `Wait ${day.waitCostTotal.toFixed(0)} | Hold ${day.holdCostTotal.toFixed(0)}`;
     }
   }
@@ -728,8 +730,7 @@
       } else if (preset === "realtime") {
         $("policy").value = "realtime";
         $("holdMax").value = "5.0";
-        $("shiftRoute").value = "CM01";
-        $("shiftMin").value = "-5";
+        $("shiftMin").value = "0";
       }
       updateControlReadouts();
       resetSimulation();

@@ -145,12 +145,16 @@
     const queues = Array.from({ length: nStops }, () => []);
     const { dayStartMin, dayEndMin, preDepartureAccumMin } = CFG.timeWindow;
     const { peakMultiplier, offpeakMultiplier } = CFG.demand;
-    const startWindowMin = Math.max(dayStartMin, firstOriginMin - preDepartureAccumMin);
+    // Scheduled min from the origin to each stop at constant scheduled speed (the rule that places Borella).
+    const cumKm = [0];
+    legCfg.segmentDistancesKm.forEach((d) => cumKm.push(cumKm[cumKm.length - 1] + d));
+    const totalKm = cumKm[cumKm.length - 1];
     for (let s = 0; s < nStops - 1; s++) {
       const baseRate = legCfg.baseArrivalRatePaxPerMin[s];
       if (baseRate <= 0) continue;
       const maxRate = baseRate * peakMultiplier;
-      let t = startWindowMin;
+      // Passengers start arriving 30 min before the first bus is scheduled at this stop.
+      let t = Math.max(dayStartMin, firstOriginMin + (legCfg.scheduledRunMin * cumKm[s]) / totalKm - preDepartureAccumMin);
       while (true) {
         t += sampleExponentialInterarrival(maxRate, rng);
         if (t >= dayEndMin) break;

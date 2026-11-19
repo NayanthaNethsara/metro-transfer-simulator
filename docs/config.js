@@ -25,7 +25,7 @@ window.SIM_CONFIG = {
     boardTimeSec: 2.0,
     alightTimeSec: 2.0,
     transferMeanPax: 5.0,
-    walkTimeMin: 3.5,
+    walkTimeMin: 5.0,
     passengerPatienceMin: 20.0,
     ticketValidityMin: 120.0,
     alternativeTravelPenaltyMin: 60.0,
@@ -50,13 +50,13 @@ window.SIM_CONFIG = {
   },
 
   notebookReference: {
-    description: "Notebook consolidated policy comparison (seed = 42, R = 1000 CRN days, LMT-GO timetable of 19 Nov 2026, cmb_traffic traffic chain, w = 3.5 min, C = 80, patience 20 min, OSRM road distances)",
+    description: "Notebook consolidated policy comparison (seed = 42, R = 1000 CRN days, LMT-GO timetable of 19 Nov 2026, cmb_traffic traffic chain, w = 5.0 min, C = 80, patience 20 min, OSRM road distances)",
     tolerancePp: 2.0,
     minDaysForCheck: 300,
     calibratedAlphas: {
-      CM01_MAK_to_FOR: 0.727,
+      CM01_MAK_to_FOR: 0.726,
       CM01_FOR_to_MAK: 0.832,
-      CM03_MAK_to_KAD: 0.677,
+      CM03_MAK_to_KAD: 0.676,
       CM03_KAD_to_MAK: 0.646
     },
     scenarios: [
@@ -66,12 +66,12 @@ window.SIM_CONFIG = {
         holdMaxMin: 0.0,
         shiftRoute: "CM01",
         shiftMin: 0,
-        missAllPct: 16.48,
-        missAllCi95: 0.45,
-        missAPct: 16.94,
-        missBPct: 16.06,
-        objectiveJ: 15791.2,
-        objectiveJCi95: 126.5
+        missAllPct: 18.16,
+        missAllCi95: 0.48,
+        missAPct: 18.23,
+        missBPct: 18.05,
+        objectiveJ: 16405.9,
+        objectiveJCi95: 124.0
       },
       {
         label: "Hold only, schedule h = 5 min",
@@ -79,51 +79,25 @@ window.SIM_CONFIG = {
         holdMaxMin: 5.0,
         shiftRoute: "CM01",
         shiftMin: 0,
-        missAllPct: 12.35,
-        missAllCi95: 0.35,
-        missAPct: 10.16,
-        missBPct: 14.08,
-        objectiveJ: 15180.3,
-        objectiveJCi95: 122.2
+        missAllPct: 12.71,
+        missAllCi95: 0.37,
+        missAPct: 9.40,
+        missBPct: 15.35,
+        objectiveJ: 15540.6,
+        objectiveJCi95: 119.4
       },
       {
-        label: "Hold only, real-time h = 5 min, current timetable",
+        label: "Recommended: real-time hold h = 5 min, current timetable",
         policy: "realtime",
         holdMaxMin: 5.0,
         shiftRoute: "CM01",
         shiftMin: 0,
-        missAllPct: 12.73,
-        missAllCi95: 0.36,
-        missAPct: 10.60,
-        missBPct: 14.41,
-        objectiveJ: 14781.5,
-        objectiveJCi95: 109.4
-      },
-      {
-        label: "Recommended: CM01 towards Pettah -5 min + real-time hold h = 5 min",
-        policy: "realtime",
-        holdMaxMin: 5.0,
-        shiftRoute: "CM01",
-        shiftMin: -5,
-        missAllPct: 15.43,
-        missAllCi95: 0.43,
-        missAPct: 16.50,
-        missBPct: 14.51,
-        objectiveJ: 14577.2,
-        objectiveJCi95: 113.7
-      },
-      {
-        label: "Best shift alone, CM01 towards Pettah +5 min",
-        policy: "none",
-        holdMaxMin: 0.0,
-        shiftRoute: "CM01",
-        shiftMin: 5,
-        missAllPct: 15.34,
-        missAllCi95: 0.39,
-        missAPct: 14.53,
-        missBPct: 15.97,
-        objectiveJ: 15690.1,
-        objectiveJCi95: 111.6
+        missAllPct: 13.19,
+        missAllCi95: 0.38,
+        missAPct: 9.85,
+        missBPct: 15.84,
+        objectiveJ: 15076.7,
+        objectiveJCi95: 105.9
       }
     ]
   },
