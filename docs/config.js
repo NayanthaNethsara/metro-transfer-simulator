@@ -45,67 +45,67 @@ window.SIM_CONFIG = {
   },
 
   notebookReference: {
-    description: "Notebook consolidated policy comparison (seed = 42, R = 1000 CRN days, w = 3.5 min, C = 80, cmb_traffic speeds, OSRM road distances)",
+    description: "Notebook consolidated policy comparison (seed = 42, R = 1000 CRN days, LMT-GO timetable of 19 Nov 2026, w = 3.5 min, C = 80, cmb_traffic speeds, OSRM road distances)",
     tolerancePp: 2.0,
     minDaysForCheck: 300,
     calibratedAlphas: {
-      CM01_MAK_to_FOR: 0.498,
-      CM01_FOR_to_MAK: 0.648,
-      CM03_MAK_to_KAD: 0.457,
-      CM03_KAD_to_MAK: 0.714
+      CM01_MAK_to_FOR: 0.698,
+      CM01_FOR_to_MAK: 0.806,
+      CM03_MAK_to_KAD: 0.637,
+      CM03_KAD_to_MAK: 0.654
     },
     scenarios: [
       {
         label: "Baseline",
         policy: "none",
         holdMaxMin: 0.0,
-        shiftRoute: "CM03",
-        shiftMin: 0,
-        missAllPct: 15.05,
-        missAllCi95: 0.56,
-        missAPct: 21.99,
-        missBPct: 10.07,
-        objectiveJ: 10255.9,
-        objectiveJCi95: 94.1
-      },
-      {
-        label: "Hold only, schedule h = 3 min",
-        policy: "schedule",
-        holdMaxMin: 3.0,
-        shiftRoute: "CM03",
-        shiftMin: 0,
-        missAllPct: 12.48,
-        missAllCi95: 0.52,
-        missAPct: 17.58,
-        missBPct: 8.85,
-        objectiveJ: 10171.3,
-        objectiveJCi95: 94.2
-      },
-      {
-        label: "Hold only, real-time h = 3 min",
-        policy: "realtime",
-        holdMaxMin: 3.0,
-        shiftRoute: "CM03",
-        shiftMin: 0,
-        missAllPct: 12.75,
-        missAllCi95: 0.53,
-        missAPct: 18.01,
-        missBPct: 8.99,
-        objectiveJ: 10015.9,
-        objectiveJCi95: 92.7
-      },
-      {
-        label: "Joint, real-time h = 10 min, CM01 +10 min",
-        policy: "realtime",
-        holdMaxMin: 10.0,
         shiftRoute: "CM01",
-        shiftMin: 10,
-        missAllPct: 10.98,
-        missAllCi95: 0.50,
-        missAPct: 9.50,
-        missBPct: 12.09,
-        objectiveJ: 9389.0,
-        objectiveJCi95: 91.7
+        shiftMin: 0,
+        missAllPct: 25.57,
+        missAllCi95: 0.48,
+        missAPct: 27.65,
+        missBPct: 23.87,
+        objectiveJ: 14807.1,
+        objectiveJCi95: 102.7
+      },
+      {
+        label: "Hold only, schedule h = 5 min",
+        policy: "schedule",
+        holdMaxMin: 5.0,
+        shiftRoute: "CM01",
+        shiftMin: 0,
+        missAllPct: 16.99,
+        missAllCi95: 0.43,
+        missAPct: 20.69,
+        missBPct: 14.00,
+        objectiveJ: 14213.0,
+        objectiveJCi95: 103.3
+      },
+      {
+        label: "Recommended: real-time hold h = 5 min, current timetable",
+        policy: "realtime",
+        holdMaxMin: 5.0,
+        shiftRoute: "CM01",
+        shiftMin: 0,
+        missAllPct: 17.48,
+        missAllCi95: 0.44,
+        missAPct: 21.20,
+        missBPct: 14.47,
+        objectiveJ: 13425.6,
+        objectiveJCi95: 100.5
+      },
+      {
+        label: "Best shift alone, CM01 -5 min",
+        policy: "none",
+        holdMaxMin: 0.0,
+        shiftRoute: "CM01",
+        shiftMin: -5,
+        missAllPct: 25.80,
+        missAllCi95: 0.48,
+        missAPct: 34.08,
+        missBPct: 19.10,
+        objectiveJ: 14431.8,
+        objectiveJCi95: 96.5
       }
     ]
   },

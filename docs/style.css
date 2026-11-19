@@ -673,14 +673,14 @@ input[type="number"]:focus {
 }
 
 .hold-bar {
-  height: 6px;
   margin-top: 8px;
-  background: var(--color-border);
+  /* 6px track drawn as a background strip, so the label below it stays inside the box */
+  background: linear-gradient(var(--color-border), var(--color-border)) top / 100% 6px no-repeat;
 }
 
 .hold-bar-fill {
   width: 0;
-  height: 100%;
+  height: 6px;
   background: var(--color-warning);
   transition: width 0.2s ease;
 }

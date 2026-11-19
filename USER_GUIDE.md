@@ -10,10 +10,10 @@ The labels in the screenshot: (1) scenario presets, (2) holding rule and its pla
 
 | Control | What it does | Range | Default |
 |---|---|---|---|
-| 01. Scenario Presets | Loads `01. BASELINE` (`none`, `h=0`), `02. HOLD 3M` (`schedule`, `h=3`), or `03. RT + SHIFT` (`realtime`, `h=10`, CM01 `+10 min`) | 3 presets | `02. HOLD 3M` |
-| Borella holding rule | Segmented toggle for `NONE`, `SCHEDULE` (wait up to `h` past the connector's natural departure for every linked feeder), or `REAL-TIME` (wait only for feeders whose noisy ETA says they can make it) | 3 modes | `SCHEDULE` |
-| Max hold time `h` | Maximum Borella hold past the connector's natural departure (arrival + dwell) | `0.0` to `10.0 min` (step `0.5`) | `3.0 min` |
-| Timetable shift route | Segmented toggle choosing `CM03 (KAD-MAK)` or `CM01 (FOR-MAK)` | 2 routes | `CM03` |
+| 01. Scenario Presets | Loads `01. BASELINE` (`none`, `h=0`), `02. SCHED HOLD 5M` (`schedule`, `h=5`), or `03. RECOMMENDED` (`realtime`, `h=5`, no shift) | 3 presets | `03. RECOMMENDED` |
+| Borella holding rule | Segmented toggle for `NONE`, `SCHEDULE` (wait up to `h` past the connector's natural departure for every linked feeder), or `REAL-TIME` (wait only for feeders whose noisy ETA says they can make it) | 3 modes | `REAL-TIME` |
+| Max hold time `h` | Maximum Borella hold past the connector's natural departure (arrival + dwell) | `0.0` to `10.0 min` (step `0.5`) | `5.0 min` |
+| Timetable shift route | Segmented toggle choosing `CM03 (KAD-MAK)` or `CM01 (PET-MAK)` | 2 routes | `CM01` |
 | Schedule shift `Delta` | Uniformly shifts all departures of the selected route (both directions) | `-30` to `+30 min` (step `5`) | `0 min` |
 | Borella walk time `w` | Walking time between `Borella 02 (YMBA)` and `Borella (Singer Mega)` | `1.0` to `7.0 min` (step `0.5`) | `3.5 min` |
 | Bus capacity `C` | Maximum passenger load per bus before local/transfer boarding spills to the next trip | `40` to `120 pax` (step `10`) | `80 pax` |
@@ -36,16 +36,16 @@ The labels in the screenshot: (1) scenario presets, (2) holding rule and its pla
 
 ## Try this
 
-1. Click **01. BASELINE**, set **Monte Carlo days R** to 300, click **Run All R**, and read the missed rate: about 15%, with Kadawatha-Pettah (Group A) missing about twice as often as Pettah-Kadawatha (Group B). The notebook check underneath should say PASS.
-2. Click **02. HOLD 3M**, then **14:39 TIGHT A** in the quick-jump bar. `CM03-KAD-05` reaches Borella and its passengers walk to `CM01-MAK-09`; when the CM01 bus is running early or the CM03 bus is late, watch the connector hold (amber) in the Borella inset.
-3. Click **03. RT + SHIFT** (CM03 timetable 10 min earlier, real-time holding up to 10 min) and **Run All R**. Group A misses fall sharply while Group B rises a little, and the total cost `J` is lowest of the three presets.
-4. With preset 3 still selected, drag **Peak target car speed** down to 18 km/h and run again to see how a worse traffic day than the timetable assumes affects the policy.
+1. Click **01. BASELINE**, set **Monte Carlo days R** to 300, click **Run All R**, and read the missed rate: about 25%, but only about 2% of passengers are lost to other transport because the next bus is 15-35 min away. The notebook check underneath should say PASS.
+2. Click **03. RECOMMENDED**, then **08:39 TIGHT B** in the quick-jump bar. `CM01-PET-04` reaches Borella just as its connector `CM03-MAK-05` is due; without holding its passengers always miss it, so watch the connector hold (amber) in the Borella inset.
+3. With **03. RECOMMENDED** selected, click **Run All R**. The missed rate falls to about 17% and the total cost `J` is the lowest of the three presets. Compare **02. SCHED HOLD 5M**: about the same misses, but a much larger on-board hold cost.
+4. Set **Schedule shift Delta** to `-5 min` with holding off (**NONE**) and run again: the timetable shift alone does not reduce misses. Then drag **Peak target car speed** down to 18 km/h with the recommended preset to see a worse traffic day than the timetable assumes.
 
 ## Check against the notebook
 
 The browser engine (`docs/sim-engine.js`) is a direct port of the notebook model: the same cleaned timetables, OpenStreetMap road distances, Borella placement by road distance, thinning arrivals, dwell formula, Markov traffic calibration, first-come-first-served boarding at Borella, patience and ticket-validity rules, holding policies and objective. It uses the per-leg speed factors (`alpha`) calibrated in the notebook rather than recalibrating. The random number generators differ (`mulberry32` in the browser, NumPy PCG64 in the notebook), so individual days differ but ensemble means agree.
 
-`docs/config.js` stores four notebook reference results (R = 1000 days): Baseline `15.05 +/- 0.56%`, Hold only schedule `h = 3` `12.48 +/- 0.52%`, Hold only real-time `h = 3` `12.75 +/- 0.53%`, and Joint real-time `h = 10`, CM01 `+10 min` `10.98 +/- 0.50%`. When the current settings match one of them (with default walk time, capacity and peak speed) and at least 300 days have run, the Mean Missed card shows the difference and whether it is within the stated tolerance of `+/- 2.0` percentage points. Running the browser engine for 1000 days on three seeds gave differences of `-0.3` to `+0.6` points for all four scenarios, in line with the spread between the notebook's own seed sets.
+`docs/config.js` stores four notebook reference results (R = 1000 days): Baseline `25.57 +/- 0.48%`, Hold only schedule `h = 5` `16.99 +/- 0.43%`, Recommended real-time `h = 5` with no shift `17.48 +/- 0.44%`, and Best shift alone CM01 `-5 min` `25.80 +/- 0.48%`. When the current settings match one of them (with default walk time, capacity and peak speed) and at least 300 days have run, the Mean Missed card shows the difference and whether it is within the stated tolerance of `+/- 2.0` percentage points. Running the browser engine for 1000 days on three seeds gave differences of `-0.6` to `+0.3` points for all four scenarios, in line with the spread between the notebook's own seed sets.
 
 ## Limitations
 

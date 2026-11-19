@@ -8,7 +8,7 @@
   const TRAFFIC_DASH_PATTERNS = [null, "8 5", "2 5"];
   const CONNECTOR_LEGS = ["CM01_MAK_to_FOR", "CM03_MAK_to_KAD"];
   const LEG_LABELS = {
-    CM01_MAK_to_FOR: "CM01 to Fort",
+    CM01_MAK_to_FOR: "CM01 to Pettah",
     CM01_FOR_to_MAK: "CM01 to Makumbura",
     CM03_MAK_to_KAD: "CM03 to Kadawatha",
     CM03_KAD_to_MAK: "CM03 to Makumbura"
@@ -196,7 +196,7 @@
   function buildLegendElement() {
     return createElement("map-card map-legend", `
       <div class="overlay-title">Legend</div>
-      <div class="legend-item"><span class="legend-line route-cm01"></span>CM01 Makumbura - Fort</div>
+      <div class="legend-item"><span class="legend-line route-cm01"></span>CM01 Makumbura - Pettah</div>
       <div class="legend-item"><span class="legend-line route-cm03"></span>CM03 Makumbura - Kadawatha</div>
       <div class="legend-subtitle">Traffic per direction (left lane)</div>
       <div class="legend-item"><span class="lane-swatch state-0"></span>Free (36 km/h)</div>
@@ -324,7 +324,7 @@
     const inspectorEl = createElement("map-card trip-inspector", "");
     const hudEl = createElement("map-card network-hud", "");
     const insetEl = createElement("map-card borella-inset", `
-      <div class="overlay-title">Borella interchange <span class="overlay-hint">${geo.borellaWalk.distanceM} m walk via Baseline Road</span></div>
+      <div class="overlay-title">Borella interchange <span class="overlay-hint">${geo.borellaWalk.distanceM} m walk</span></div>
       <div class="borella-map"></div>
       <div class="hold-bar"><div class="hold-bar-fill"></div><span class="hold-bar-label"></span></div>
       <ul class="inset-events"></ul>

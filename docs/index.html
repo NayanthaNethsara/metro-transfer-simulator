@@ -36,13 +36,13 @@
             <span class="p-name">01. BASELINE</span>
             <span class="p-sub">none | h=0m</span>
           </button>
-          <button type="button" class="preset-btn active" data-preset="hold3">
-            <span class="p-name">02. HOLD 3M</span>
-            <span class="p-sub">sched | h=3m</span>
+          <button type="button" class="preset-btn" data-preset="sched5">
+            <span class="p-name">02. SCHED HOLD 5M</span>
+            <span class="p-sub">sched | h=5m</span>
           </button>
-          <button type="button" class="preset-btn" data-preset="realtime">
-            <span class="p-name">03. RT + SHIFT</span>
-            <span class="p-sub">eta h=10m | +10m CM01</span>
+          <button type="button" class="preset-btn active" data-preset="realtime">
+            <span class="p-name">03. RECOMMENDED</span>
+            <span class="p-sub">eta h=5m | no shift</span>
           </button>
         </div>
       </div>
@@ -56,13 +56,13 @@
         <label class="field-label" for="policy">Borella holding rule</label>
         <select id="policy" class="sr-only" aria-label="Borella holding rule">
           <option value="none">No holding</option>
-          <option value="schedule" selected>Schedule-based holding</option>
-          <option value="realtime">Real-time ETA holding</option>
+          <option value="schedule">Schedule-based holding</option>
+          <option value="realtime" selected>Real-time ETA holding</option>
         </select>
         <div class="seg-group cols-3" role="group" aria-label="Holding policy selector">
           <button type="button" class="seg-btn" data-policy="none">NONE</button>
-          <button type="button" class="seg-btn active" data-policy="schedule">SCHEDULE</button>
-          <button type="button" class="seg-btn" data-policy="realtime">REAL-TIME</button>
+          <button type="button" class="seg-btn" data-policy="schedule">SCHEDULE</button>
+          <button type="button" class="seg-btn active" data-policy="realtime">REAL-TIME</button>
         </div>
         <div class="rule-box" id="policyRuleBox">Connectors wait up to h minutes past their natural Borella departure for every linked feeder.</div>
 
@@ -70,17 +70,17 @@
           <span>Max hold time h</span>
           <span class="field-value" id="holdMaxVal">3.0 min</span>
         </label>
-        <input id="holdMax" type="range" min="0" max="10" step="0.5" value="3.0">
+        <input id="holdMax" type="range" min="0" max="10" step="0.5" value="5.0">
         <div class="slider-bounds"><span>0.0m (MIN)</span><span>10.0m (MAX)</span></div>
 
         <label class="field-label" for="shiftRoute">Timetable shift route</label>
         <select id="shiftRoute" class="sr-only" aria-label="Timetable shift route">
-          <option value="CM03" selected>Shift CM03 (both directions)</option>
-          <option value="CM01">Shift CM01 (both directions)</option>
+          <option value="CM03">Shift CM03 (both directions)</option>
+          <option value="CM01" selected>Shift CM01 (both directions)</option>
         </select>
         <div class="seg-group cols-2" role="group" aria-label="Route shift selector">
-          <button type="button" class="seg-btn active" data-shift-route="CM03">CM03 (KAD-MAK)</button>
-          <button type="button" class="seg-btn" data-shift-route="CM01">CM01 (FOR-MAK)</button>
+          <button type="button" class="seg-btn" data-shift-route="CM03">CM03 (KAD-MAK)</button>
+          <button type="button" class="seg-btn active" data-shift-route="CM01">CM01 (PET-MAK)</button>
         </div>
 
         <label class="field-label" for="shiftMin">
@@ -173,8 +173,8 @@
         </div>
         <div class="jump-group" aria-label="Quick time jumps">
           <button type="button" class="time-jump-btn" data-jump-min="480">08:00 AM PEAK</button>
-          <button type="button" class="time-jump-btn" data-jump-min="552">09:14 TIGHT B</button>
-          <button type="button" class="time-jump-btn" data-jump-min="877">14:39 TIGHT A</button>
+          <button type="button" class="time-jump-btn" data-jump-min="519">08:39 TIGHT B</button>
+          <button type="button" class="time-jump-btn" data-jump-min="607">10:07 TIGHT A</button>
           <button type="button" class="time-jump-btn" data-jump-min="1066">17:46 PM PEAK</button>
         </div>
       </div>
@@ -213,7 +213,7 @@
           <div class="k">Group A vs Group B Miss</div>
           <div class="v" id="outMissAB">-</div>
           <div class="kpi-bar"><div class="kpi-bar-fill" id="barMissAB"></div></div>
-          <div class="kpi-sub" id="subMissAB">A: KAD-FOR | B: FOR-KAD</div>
+          <div class="kpi-sub" id="subMissAB">A: KAD-PET | B: PET-KAD</div>
         </div>
         <div class="stat-card">
           <div class="k">Objective J (pax-min)</div>

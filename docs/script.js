@@ -119,7 +119,7 @@
   function updateAlphaReadout() {
     const a = REF.calibratedAlphas;
     $("alphaReadout").textContent =
-      `NOTEBOOK-CALIBRATED ALPHA // CM01 MAK-FOR ${a.CM01_MAK_to_FOR.toFixed(3)} | CM01 FOR-MAK ${a.CM01_FOR_to_MAK.toFixed(3)} | ` +
+      `NOTEBOOK-CALIBRATED ALPHA // CM01 MAK-PET ${a.CM01_MAK_to_FOR.toFixed(3)} | CM01 PET-MAK ${a.CM01_FOR_to_MAK.toFixed(3)} | ` +
       `CM03 MAK-KAD ${a.CM03_MAK_to_KAD.toFixed(3)} | CM03 KAD-MAK ${a.CM03_KAD_to_MAK.toFixed(3)}`;
   }
 
@@ -465,7 +465,7 @@
 
       $("outMissAB").textContent = `A: ${mA.mean.toFixed(1)}% | B: ${mB.mean.toFixed(1)}%`;
       $("barMissAB").style.width = `${Math.min(100, 0.5 * (mA.mean + mB.mean)).toFixed(1)}%`;
-      $("subMissAB").textContent = "A: KAD-FOR | B: FOR-KAD";
+      $("subMissAB").textContent = "A: KAD-PET | B: PET-KAD";
 
       $("outObjJ").textContent = `${obj.mean.toFixed(0)} +/- ${obj.ci.toFixed(0)}`;
       $("barObjJ").style.width = `${Math.min(100, (obj.mean / 4500) * 100).toFixed(1)}%`;
@@ -478,7 +478,7 @@
 
       $("outMissAB").textContent = `A: ${day.missRateAPct.toFixed(1)}% | B: ${day.missRateBPct.toFixed(1)}%`;
       $("barMissAB").style.width = `${Math.min(100, 0.5 * (day.missRateAPct + day.missRateBPct)).toFixed(1)}%`;
-      $("subMissAB").textContent = "A: KAD-FOR | B: FOR-KAD";
+      $("subMissAB").textContent = "A: KAD-PET | B: PET-KAD";
 
       $("outObjJ").textContent = `${day.objectiveJ.toFixed(0)} (Day 1)`;
       $("barObjJ").style.width = `${Math.min(100, (day.objectiveJ / 4500) * 100).toFixed(1)}%`;
@@ -724,15 +724,14 @@
         $("policy").value = "none";
         $("holdMax").value = "0.0";
         $("shiftMin").value = "0";
-      } else if (preset === "hold3") {
+      } else if (preset === "sched5") {
         $("policy").value = "schedule";
-        $("holdMax").value = "3.0";
+        $("holdMax").value = "5.0";
         $("shiftMin").value = "0";
       } else if (preset === "realtime") {
         $("policy").value = "realtime";
-        $("holdMax").value = "10.0";
-        $("shiftRoute").value = "CM01";
-        $("shiftMin").value = "10";
+        $("holdMax").value = "5.0";
+        $("shiftMin").value = "0";
       }
       updateControlReadouts();
       resetSimulation();
