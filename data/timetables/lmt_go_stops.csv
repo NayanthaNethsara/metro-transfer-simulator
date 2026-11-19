@@ -1,0 +1,95 @@
+route,origin,destination,seq,stop,stop_code
+CM01,Makumbura,Pettah,1,Makumbura,MMC-1
+CM01,Makumbura,Pettah,2,Kottawa,MCC4
+CM01,Makumbura,Pettah,3,Dharmapala College,MMC200
+CM01,Makumbura,Pettah,4,Pannipitiya,MCC5
+CM01,Makumbura,Pettah,5,Araliya Uyana,MMC201
+CM01,Makumbura,Pettah,6,Polwatta,MMC202
+CM01,Makumbura,Pettah,7,Kalalgoda Junction,MCC31
+CM01,Makumbura,Pettah,8,Thalawathugada,MCC32
+CM01,Makumbura,Pettah,9,Wickramasinghepura,MMC203
+CM01,Makumbura,Pettah,10,Isurupaya,MCC33
+CM01,Makumbura,Pettah,11,Palam Thuna Junction,MCC34
+CM01,Makumbura,Pettah,12,Battaramulla,MCC93
+CM01,Makumbura,Pettah,13,Sethsiripaya,MCC38
+CM01,Makumbura,Pettah,14,Diyatha,MCC95
+CM01,Makumbura,Pettah,15,NAITA (Rajagiriya),MCC78
+CM01,Makumbura,Pettah,16,Rajagiriya,MCC41
+CM01,Makumbura,Pettah,17,"Ayurvedha Junction, Rajagiriya",MCC77
+CM01,Makumbura,Pettah,18,Castle Hospital,MCC42
+CM01,Makumbura,Pettah,19,Singer Mega-Colombo 8,MCC43
+CM01,Makumbura,Pettah,20,Wijerama,MCC97
+CM01,Makumbura,Pettah,21,Town Hall,MCC45
+CM01,Makumbura,Pettah,22,Hedges Ct (Hedges Court),MCC47
+CM01,Makumbura,Pettah,23,Maradana,MCC48
+CM01,Makumbura,Pettah,24,Colombo Fort,MCC3
+CM01,Makumbura,Pettah,25,Pettah,MCC50
+CM01,Pettah,Makumbura,1,Pettah,MCC81
+CM01,Pettah,Makumbura,2,Maradana,MCC88
+CM01,Pettah,Makumbura,3,Hedges Ct (Hedges Court),MCC90
+CM01,Pettah,Makumbura,4,Town Hall,MCC82
+CM01,Pettah,Makumbura,5,Wijerama,MCC98
+CM01,Pettah,Makumbura,6,Singer Mega-Colombo 8,MCC87
+CM01,Pettah,Makumbura,7,Castle Hospital,MCC86
+CM01,Pettah,Makumbura,8,"Ayurvedha Junction, Rajagiriya",MCC91
+CM01,Pettah,Makumbura,9,Rajagiriya,MCC80
+CM01,Pettah,Makumbura,10,NAITA (Rajagiriya),MCC92
+CM01,Pettah,Makumbura,11,Diyatha,MCC96
+CM01,Pettah,Makumbura,12,Sethsiripaya,MCC79
+CM01,Pettah,Makumbura,13,Battaramulla,MCC94
+CM01,Pettah,Makumbura,14,Palam Thuna Junction,MCC83
+CM01,Pettah,Makumbura,15,Isurupaya,MCC85
+CM01,Pettah,Makumbura,16,Wickramasinghepura,MMC204
+CM01,Pettah,Makumbura,17,Thalawathugada,MCC84
+CM01,Pettah,Makumbura,18,Kalalgoda Junction,MCC89
+CM01,Pettah,Makumbura,19,Polwatta,MMC206
+CM01,Pettah,Makumbura,20,Araliya Uyana,MMC205
+CM01,Pettah,Makumbura,21,Pannipitiya,MCC71
+CM01,Pettah,Makumbura,22,Dharmapala College,MMC207
+CM01,Pettah,Makumbura,23,Kottawa,MCC67
+CM01,Pettah,Makumbura,24,Makumbura,MCC62
+CM03,Makumbura,Kadawatha,1,Makumbura,MMC-1
+CM03,Makumbura,Kadawatha,2,Kottawa,MCC4
+CM03,Makumbura,Kadawatha,3,Dharmapala College,MMC200
+CM03,Makumbura,Kadawatha,4,Pannipitiya,MCC5
+CM03,Makumbura,Kadawatha,5,Maharagama,MCC1
+CM03,Makumbura,Kadawatha,6,Maharagama Apeksha Hospital 1,MCC7
+CM03,Makumbura,Kadawatha,7,Navinna Junction,MCC11
+CM03,Makumbura,Kadawatha,8,Wijerama Junction,MCC12
+CM03,Makumbura,Kadawatha,9,Delkanda Junction,MCC57
+CM03,Makumbura,Kadawatha,10,Nugegoda 1,MCC14
+CM03,Makumbura,Kadawatha,11,Kirulapone,MCC16
+CM03,Makumbura,Kadawatha,12,Narahenpita Junction,MCC17
+CM03,Makumbura,Kadawatha,13,RMV/ Army Hospital,MCC18
+CM03,Makumbura,Kadawatha,14,Borella 02 - YMBA,MCC20
+CM03,Makumbura,Kadawatha,15,Campbell Park,MCC21
+CM03,Makumbura,Kadawatha,16,Dematagoda,MCC22
+CM03,Makumbura,Kadawatha,17,"Orion City, Orugodawatta",MCC56
+CM03,Makumbura,Kadawatha,18,Thorana Junction,MCC25
+CM03,Makumbura,Kadawatha,19,Kelaniya University,MCC26
+CM03,Makumbura,Kadawatha,20,Kiribathgoda,MCC27
+CM03,Makumbura,Kadawatha,21,Mahara Junction,MCC28
+CM03,Makumbura,Kadawatha,22,Kadawatha,MCC29
+CM03,Kadawatha,Makumbura,1,Kadawatha,MCC60
+CM03,Kadawatha,Makumbura,2,Mahara Junction,MCC74
+CM03,Kadawatha,Makumbura,3,Kiribathgoda,MCC65
+CM03,Kadawatha,Makumbura,4,Kelaniya University,MCC61
+CM03,Kadawatha,Makumbura,5,Thorana Junction,MCC73
+CM03,Kadawatha,Makumbura,6,"Orion City, Orugodawatta",MCC76
+CM03,Kadawatha,Makumbura,7,Dematagoda 2,MCC66
+CM03,Kadawatha,Makumbura,8,Campbell Park,MCC59
+CM03,Kadawatha,Makumbura,9,Borella 02 - YMBA,MCC68
+CM03,Kadawatha,Makumbura,10,RMV/ Army Hospital,MCC70
+CM03,Kadawatha,Makumbura,11,Narahenpita Junction,MCC58
+CM03,Kadawatha,Makumbura,12,Kirulapone,MCC69
+CM03,Kadawatha,Makumbura,13,Nugegoda,MCC72
+CM03,Kadawatha,Makumbura,14,Delkanda Junction,MCC75
+CM03,Kadawatha,Makumbura,15,Wijerama Junction,MCC64
+CM03,Kadawatha,Makumbura,16,Navinna Junction,MCC63
+CM03,Kadawatha,Makumbura,17,Maharagama NYSC,MCC10
+CM03,Kadawatha,Makumbura,18,Maharagama Apeksha Hospital 1,MCC7
+CM03,Kadawatha,Makumbura,19,Maharagama Cargills Food City 02,MCC9
+CM03,Kadawatha,Makumbura,20,Pannipitiya,MCC71
+CM03,Kadawatha,Makumbura,21,Dharmapala College,MMC207
+CM03,Kadawatha,Makumbura,22,Kottawa,MCC67
+CM03,Kadawatha,Makumbura,23,Makumbura,MCC62

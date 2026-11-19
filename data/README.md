@@ -2,26 +2,25 @@
 
 ## timetables/
 
-Raw departure schedules for Lanka Metro Transit routes CM01 and CM03, copied from the LMT-GO mobile app (Lanka Metro Transit) on 10 November 2026 and converted to 24-hour `HH:MM`. Values are exactly as shown in the app; no cleaning has been applied in these CSV files.
+Lanka Metro Transit routes CM01 (Makumbura-Pettah, via Colombo Fort) and CM03 (Makumbura-Kadawatha), copied from the LMT-GO mobile app on 19 November 2026 using the app's copy function. No values were edited.
 
-| File | Route and direction | Trips |
-|---|---|---|
-| `cm01_makumbura_to_fort.csv` | CM01 Makumbura to Colombo Fort | 12 |
-| `cm01_fort_to_makumbura.csv` | CM01 Colombo Fort to Makumbura | 12 |
-| `cm03_makumbura_to_kadawatha.csv` | CM03 Makumbura to Kadawatha | 12 |
-| `cm03_kadawatha_to_makumbura.csv` | CM03 Kadawatha to Makumbura | 11 |
+| File | Contents |
+|---|---|
+| `lmt_go_departures.csv` | One row per trip: route, trip ID, origin, destination, departure time (`HH:MM`) and bus registration number. 116 trips: CM01 31 + 31, CM03 27 + 27. |
+| `lmt_go_stops.csv` | The full stop sequence and stop code for each route direction (22-25 stops). |
 
-Columns are timetable timepoints only. Borella is not a published timepoint and is interpolated between its bracketing timepoints inside the notebook.
+Notes:
 
-### Known issues (handled in the notebook cleaning step)
-
-- The app labels routes with codes that differ from the official route announcement. Route codes here follow the official announcement: CM01 = Makumbura-Pettah/Fort, CM03 = Makumbura-Kadawatha.
-- `CM03-MAK-02` (05:45 from Makumbura) has a +60-minute offset on intermediate timepoints (`Nawinna` 07:18 through `Kelaniya University` 08:47), while the terminal arrival at `Kadawatha` (08:05) follows the standard 140-minute runtime. The notebook subtracts 60 minutes from those four columns and asserts strict monotonicity.
-- Timetables are subject to operational updates without notice.
+- **Departure times only.** The app lists departure times from the first stop, not times at intermediate stops. The notebook uses scheduled run times from metrobus.lk (accessed 19 November 2026): CM01 72 min Makumbura-Colombo Fort plus 3 min Fort-Pettah, CM03 120 min. Times at Borella are placed in proportion to road distance. The bus duties in the app (each bus alternating between terminals) are consistent with these run times, while the longer run times of an older website copy (110 and 140 min) are not.
+- **Bus registration numbers** give the real fleet: 12 CM01 buses and 11 CM03 buses. Buses sometimes wait at the terminals between trips.
+- **Model stops.** The notebook uses 6-8 main stops per direction (`Makumbura`, `Sethsiripaya`, `Rajagiriya`, `Borella`, `Town Hall`, `Colombo Fort`, `Pettah`; CM03: `Apeksha Hospital`, `Nawinna`, `Narahenpita Junction`, `Borella 02 (YMBA)`, `Campbell Park`, `Kelaniya University`, `Kadawatha`). Passenger demand is assumed per main stop, so the other stops are not modelled separately.
+- **CM01 ends at Pettah.** Towards the city CM01 calls at Colombo Fort and terminates at Pettah; the return trip starts at Pettah and does not call at Colombo Fort.
+- **Route codes** follow the LMT-GO app: CM01 = Makumbura-Pettah, CM03 = Makumbura-Kadawatha. The metrobus.lk website uses different codes and an older timetable.
+- Timetables can change without notice; this is a snapshot.
 
 ### Source and licence
 
-- Timetables: LMT-GO mobile app (Lanka Metro Transit), accessed 2026-11-10, cross-checked against `https://metrobus.lk`. Factual schedule data reproduced for non-commercial research use with attribution.
+- LMT-GO mobile app (Lanka Metro Transit), accessed 2026-11-19. Run times: metrobus.lk, accessed 2026-11-19. Factual schedule data reproduced for non-commercial research use with attribution.
 
 ## Borella interchange
 

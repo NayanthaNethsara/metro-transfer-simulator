@@ -23,7 +23,7 @@ STOP_COORDINATES = {
     "Colombo Fort": (6.93373, 79.85008),
     "Kadawatha": (7.00522, 79.95467),
     "Kelaniya University": (6.97422, 79.91539),
-    "Cambell Park": (6.92002, 79.87714),
+    "Campbell Park": (6.92002, 79.87714),
     "Borella 02 (YMBA)": (6.91338, 79.87745),
     "Narahenpita Junction": (6.89240, 79.87701),
     "Nawinna": (6.85289, 79.91786),
@@ -31,10 +31,10 @@ STOP_COORDINATES = {
 }
 
 LEG_STOPS = {
-    "CM01_MAK_to_FOR": ["Makumbura", "Sethsiripaya", "Rajagiriya", "Borella (Singer Mega)", "Town Hall", "Colombo Fort"],
-    "CM01_FOR_to_MAK": ["Colombo Fort", "Pettah", "Town Hall", "Borella (Singer Mega)", "Rajagiriya", "Sethsiripaya", "Makumbura"],
-    "CM03_MAK_to_KAD": ["Makumbura", "Apeksha Hospital", "Nawinna", "Narahenpita Junction", "Borella 02 (YMBA)", "Cambell Park", "Kelaniya University", "Kadawatha"],
-    "CM03_KAD_to_MAK": ["Kadawatha", "Kelaniya University", "Cambell Park", "Borella 02 (YMBA)", "Narahenpita Junction", "Nawinna", "Apeksha Hospital", "Makumbura"],
+    "CM01_MAK_to_FOR": ["Makumbura", "Sethsiripaya", "Rajagiriya", "Borella (Singer Mega)", "Town Hall", "Colombo Fort", "Pettah"],
+    "CM01_FOR_to_MAK": ["Pettah", "Town Hall", "Borella (Singer Mega)", "Rajagiriya", "Sethsiripaya", "Makumbura"],
+    "CM03_MAK_to_KAD": ["Makumbura", "Apeksha Hospital", "Nawinna", "Narahenpita Junction", "Borella 02 (YMBA)", "Campbell Park", "Kelaniya University", "Kadawatha"],
+    "CM03_KAD_to_MAK": ["Kadawatha", "Kelaniya University", "Campbell Park", "Borella 02 (YMBA)", "Narahenpita Junction", "Nawinna", "Apeksha Hospital", "Makumbura"],
 }
 
 DRIVING_ROUTER_URL = "https://router.project-osrm.org/route/v1/driving/{coords}?overview=full&geometries=geojson"

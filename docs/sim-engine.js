@@ -153,26 +153,23 @@
   }
 
   function borellaRoadFraction(legCfg) {
-    const b = legCfg.borellaStopIndex;
-    const beforeKm = legCfg.segmentDistancesKm[b - 1];
-    const afterKm = legCfg.segmentDistancesKm[b];
-    return beforeKm / (beforeKm + afterKm);
+    // Share of the leg's road distance that lies before Borella.
+    const total = legCfg.segmentDistancesKm.reduce((a, b) => a + b, 0);
+    const before = legCfg.segmentDistancesKm.slice(0, legCfg.borellaStopIndex).reduce((a, b) => a + b, 0);
+    return before / total;
   }
 
   function buildScheduledLegTrips(legKey, shiftMin) {
     const legCfg = CFG.routes[legKey];
-    const b = legCfg.borellaStopIndex;
     const frac = borellaRoadFraction(legCfg);
     return CFG.timetables[legKey]
       .map((row) => {
-        const mins = row.times.map((t) => parseHhmmToMinutes(t) + shiftMin);
-        const prevMin = mins[b - 1];
-        const nextMin = mins[b];
+        const originMin = parseHhmmToMinutes(row.departure) + shiftMin;
         return {
           tripId: row.tripId,
-          originSchedMin: mins[0],
-          borellaSchedMin: prevMin + frac * (nextMin - prevMin),
-          destSchedMin: mins[mins.length - 1]
+          originSchedMin: originMin,
+          borellaSchedMin: originMin + frac * legCfg.scheduledRunMin,
+          destSchedMin: originMin + legCfg.scheduledRunMin
         };
       })
       .sort((x, y) => x.originSchedMin - y.originSchedMin);
