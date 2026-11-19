@@ -86,7 +86,6 @@
       shiftMin: parseFloat($("shiftMin").value),
       walkTimeMin: parseFloat($("walkTime").value),
       capacityPax: parseInt($("capacityPax").value, 10),
-      peakSpeedKmph: parseFloat($("peakSpeed").value),
       animSpeed: parseFloat($("animSpeed").value),
       repTotal: parseInt($("repTotal").value, 10),
       seed: Math.max(1, parseInt($("seed").value, 10) || CFG.seed)
@@ -99,7 +98,6 @@
     $("shiftMinVal").textContent = `${p.shiftMin > 0 ? "+" : ""}${p.shiftMin} min`;
     $("walkTimeVal").textContent = `${p.walkTimeMin.toFixed(1)} min`;
     $("capacityPaxVal").textContent = `${p.capacityPax} pax`;
-    $("peakSpeedVal").textContent = `${p.peakSpeedKmph.toFixed(1)} km/h`;
     $("animSpeedVal").textContent = `${p.animSpeed.toFixed(1)}x`;
     $("repTotalVal").textContent = `${p.repTotal} days`;
 
@@ -111,7 +109,7 @@
     $("policyRuleBox").textContent = ruleDescriptions[p.policy] || ruleDescriptions.schedule;
     syncSegmentedButtons(p.policy, p.shiftRoute);
 
-    ["holdMax", "shiftMin", "walkTime", "capacityPax", "peakSpeed", "animSpeed", "repTotal", "timeScrubber"].forEach((id) => {
+    ["holdMax", "shiftMin", "walkTime", "capacityPax", "animSpeed", "repTotal", "timeScrubber"].forEach((id) => {
       updateSliderFill($(id));
     });
   }
@@ -127,8 +125,7 @@
     const defaults = CFG.busParameters;
     const isDefaultWorld =
       Math.abs(params.walkTimeMin - defaults.walkTimeMin) < 1e-9 &&
-      params.capacityPax === defaults.capacityPax &&
-      Math.abs(params.peakSpeedKmph - CFG.trafficModel.targetSpeedPeakKmph) < 1e-9;
+      params.capacityPax === defaults.capacityPax;
     if (!isDefaultWorld) return null;
     return REF.scenarios.find((sc) => {
       const shift = sc.shiftMin === 0 || params.shiftRoute === sc.shiftRoute ? sc.shiftMin : null;
@@ -141,7 +138,7 @@
     const el = $("referenceCheck");
     const sc = matchingReferenceScenario(params);
     if (!sc) {
-      el.textContent = "Notebook check: choose a preset with default walk, capacity and peak speed to compare.";
+      el.textContent = "Notebook check: choose a preset with default walk and capacity to compare.";
       el.className = "kpi-sub";
       return;
     }
@@ -699,7 +696,7 @@
     });
   });
 
-  ["holdMax", "shiftMin", "walkTime", "capacityPax", "peakSpeed", "repTotal"].forEach((id) => {
+  ["holdMax", "shiftMin", "walkTime", "capacityPax", "repTotal"].forEach((id) => {
     $(id).addEventListener("input", () => {
       clearActivePreset();
       updateControlReadouts();
@@ -731,7 +728,8 @@
       } else if (preset === "realtime") {
         $("policy").value = "realtime";
         $("holdMax").value = "5.0";
-        $("shiftMin").value = "0";
+        $("shiftRoute").value = "CM01";
+        $("shiftMin").value = "-5";
       }
       updateControlReadouts();
       resetSimulation();

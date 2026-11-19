@@ -31,11 +31,20 @@ Notes:
 
 ## traffic/
 
-Colombo road corridor speed profiles are extracted from the Colombo Traffic Index open dataset (`https://github.com/nuuuwan/cmb_traffic`, MIT License) for the three covered sub-corridors (`Kiribathgoda-Dematagoda`, `Dematagoda-Borella`, `Fort-Borella` in both directions) using `scripts/extract_cmb_traffic.py`:
+Road traffic comes from the Colombo Traffic Index open dataset (`https://github.com/nuuuwan/cmb_traffic`, MIT License), which records Google Maps travel times about every 30 min for fixed routes (our own road distances and map come from OpenStreetMap, see above). We use the 12 route directions on the roads CM01 and CM03 run on: `Borella-Fort` and `Borella-Dematagoda-Kiribathgoda` (the city side of both routes), `Kottawa-Pamankada` (CM03 via Maharagama and Nawinna) and `Borella-Aturugiriya` and `Borella-Kaduwela` (CM01 via Rajagiriya and Battaramulla), each in both directions. `scripts/extract_cmb_traffic.py` summarises the 68,312 observations between 05:00 and 22:00 (9 Nov 2025 to 16 May 2026; the last three routes start on 18 Nov 2025) into the files the notebook and the web demo read:
 
 ```bash
 git clone https://github.com/nuuuwan/cmb_traffic.git /tmp/cmb_traffic
-python scripts/extract_cmb_traffic.py --cmb-repo /tmp/cmb_traffic --output data/traffic/corridor_speeds.csv
+python scripts/extract_cmb_traffic.py --cmb-repo /tmp/cmb_traffic --output-dir data/traffic
 ```
 
-If `data/traffic/corridor_speeds.csv` is not present on disk when running the notebook, the notebook automatically falls back to the clearly flagged synthetic target speed assumptions (`22.0 km/h` off-peak, `14.0 km/h` peak) anchored qualitatively to Western Province peak periods (`06:00-09:00` and `17:00-20:00`) and loading ranges reported by Amalan (2021).
+| File | Contents |
+|---|---|
+| `traffic_states.csv` | For each time-of-day band and traffic state: number of observations, share and mean speed. Gives the state speeds. |
+| `traffic_transitions.csv` | For each band: counts of state changes between consecutive observations of the same corridor 20-40 min apart (37,471 pairs). Gives the 30-min transition matrices. |
+| `traffic_hourly.csv` | Observed state shares and mean speed for each hour, used to check the simulated day (Check 2a). |
+| `corridor_speeds.csv` | Peak and off-peak speed summary for each corridor. For reference only; the model does not read it. |
+
+- **States:** an observation is free, slow or jammed when its travel-time ratio (free-flow speed / speed) is below 1.3, between 1.3 and 2.0, or at least 2.0. Free-flow speed is the 90th percentile of all of that corridor's observations, including night hours, so the busiest hours are not taken as normal.
+- **Bands:** early 05:00-07:00, morning peak 07:00-09:00, midday 09:00-16:00, evening peak 16:00-19:00, evening 19:00-22:00 (Colombo time).
+- **Coverage:** together the routes cover the roads of both bus routes from end to end, but not every street they use (for example Narahenpita and the last kilometres to Makumbura and Kadawatha). cmb_traffic collected fewer observations in the morning peak, so there are fewer morning pairs (584). There is no synthetic fallback; the notebook needs these files.

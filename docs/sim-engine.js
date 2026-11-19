@@ -38,44 +38,8 @@
     return CFG.timeWindow.peakWindowsMin.some(([start, end]) => timeMin >= start && timeMin < end);
   }
 
-  function buildParametricTransitionMatrix(jamParam) {
-    const p = Number(jamParam);
-    return [
-      [1.0 - p, 0.7 * p, 0.3 * p],
-      [0.4 * (1.0 - p), 0.4, 0.2 + 0.4 * p],
-      [0.1 * (1.0 - p), 0.3 * (1.0 - p), 0.6 + 0.4 * p]
-    ];
-  }
-
-  function computeStationaryDistribution(matrix) {
-    let pi = [1 / 3, 1 / 3, 1 / 3];
-    for (let iter = 0; iter < 500; iter++) {
-      const next = [0, 0, 0];
-      for (let i = 0; i < 3; i++) {
-        for (let j = 0; j < 3; j++) next[j] += pi[i] * matrix[i][j];
-      }
-      pi = next;
-    }
-    return pi;
-  }
-
-  function expectedSpeedForJamParam(jamParam) {
-    const pi = computeStationaryDistribution(buildParametricTransitionMatrix(jamParam));
-    const speeds = CFG.trafficModel.stateSpeedsKmph;
-    return pi[0] * speeds[0] + pi[1] * speeds[1] + pi[2] * speeds[2];
-  }
-
-  function calibrateJamParamBisection(targetSpeedKmph) {
-    let [low, high] = CFG.trafficModel.jamParamBounds;
-    const vMax = expectedSpeedForJamParam(low);
-    const vMin = expectedSpeedForJamParam(high);
-    const clampedTarget = Math.max(vMin, Math.min(vMax, targetSpeedKmph));
-    for (let i = 0; i < 60; i++) {
-      const mid = 0.5 * (low + high);
-      if (expectedSpeedForJamParam(mid) > clampedTarget) low = mid;
-      else high = mid;
-    }
-    return 0.5 * (low + high);
+  function trafficBand(timeMin) {
+    return CFG.trafficModel.bands.find((band) => timeMin >= band.startMin && timeMin < band.endMin) || CFG.trafficModel.bands[CFG.trafficModel.bands.length - 1];
   }
 
   function sampleDiscreteState(rowProbs, uniformDraw) {
@@ -109,16 +73,17 @@
     return Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
   }
 
-  function generateDailyTrafficGrid(rng, matrixOffpeak, matrixPeak) {
+  function generateDailyTrafficGrid(rng) {
+    // One state per 30-min slot from 04:00. Traffic stays free until 05:00 (first hour of data), then each step uses its band's matrix.
     const { dayStartMin, dayEndMin, trafficStepMin } = CFG.timeWindow;
-    const nSlots = Math.floor((dayEndMin - dayStartMin) / trafficStepMin) + 24;
+    const nSlots = Math.floor((dayEndMin - dayStartMin) / trafficStepMin) + 8;
     const states = new Array(nSlots);
     let state = 0;
     for (let slot = 0; slot < nSlots; slot++) {
       states[slot] = state;
-      const tMin = dayStartMin + slot * trafficStepMin;
-      const mat = isPeakTime(tMin) ? matrixPeak : matrixOffpeak;
-      state = sampleDiscreteState(mat[state], rng());
+      const slotMin = dayStartMin + slot * trafficStepMin;
+      const u = rng();
+      if (slotMin >= CFG.timeWindow.trafficDataStartMin) state = sampleDiscreteState(trafficBand(slotMin).matrix[state], u);
     }
     return states;
   }
@@ -131,7 +96,6 @@
 
   function travelSegmentMinutes(startTimeMin, distanceKm, trafficStates, alpha) {
     const { dayStartMin, trafficStepMin } = CFG.timeWindow;
-    const speeds = CFG.trafficModel.stateSpeedsKmph;
     let remainingKm = Number(distanceKm);
     let currentTimeMin = Number(startTimeMin);
     while (remainingKm > EPS) {
@@ -139,6 +103,7 @@
       slot = Math.min(slot, trafficStates.length - 1);
       const slotEndMin = dayStartMin + (slot + 1) * trafficStepMin;
       const availMin = Math.max(0.01, slotEndMin - currentTimeMin);
+      const speeds = trafficBand(slotEndMin - trafficStepMin).stateSpeedsKmph;
       const speedKmPerMin = (alpha * speeds[trafficStates[slot]]) / 60.0;
       const maxDistKm = speedKmPerMin * availMin;
       if (maxDistKm >= remainingKm) {
@@ -512,18 +477,17 @@
   }
 
   function simulateFullDay(params, rng) {
-    const matOff = buildParametricTransitionMatrix(calibrateJamParamBisection(CFG.trafficModel.targetSpeedOffpeakKmph));
-    const matPeak = buildParametricTransitionMatrix(calibrateJamParamBisection(params.peakSpeedKmph));
     const alphas = CFG.notebookReference.calibratedAlphas;
-    const shiftByRoute = { CM01: params.shiftRoute === "CM01" ? params.shiftMin : 0, CM03: params.shiftRoute === "CM03" ? params.shiftMin : 0 };
+    // Only the connecting direction is shifted: CM01 towards Pettah (Group A) or CM03 towards Kadawatha (Group B).
+    const shiftedLeg = params.shiftRoute === "CM01" ? "CM01_MAK_to_FOR" : "CM03_MAK_to_KAD";
 
     const traffic = {};
     const legs = {};
     const localArrivals = {};
     for (const legKey of LEG_ORDER) {
       const legCfg = CFG.routes[legKey];
-      const schedTrips = buildScheduledLegTrips(legKey, shiftByRoute[legCfg.code]);
-      traffic[legKey] = generateDailyTrafficGrid(rng, matOff, matPeak);
+      const schedTrips = buildScheduledLegTrips(legKey, legKey === shiftedLeg ? params.shiftMin : 0);
+      traffic[legKey] = generateDailyTrafficGrid(rng);
       const queues = generateStopArrivals(legCfg, schedTrips[0].originSchedMin, rng);
       const deferredStopIdx = CONNECTOR_LEGS.has(legKey) ? legCfg.borellaStopIndex : -1;
       legs[legKey] = simulateLegDay(legKey, schedTrips, traffic[legKey], queues, alphas[legKey], params.capacityPax, CFG.busParameters.passengerPatienceMin, deferredStopIdx);

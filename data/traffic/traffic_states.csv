@@ -1,0 +1,16 @@
+band,state,n_observations,share,mean_speed_kmph
+early,free,6297,0.9495,35.77
+early,slow,334,0.0504,27.04
+early,jammed,1,0.0002,19.16
+am_peak,free,1449,0.3398,31.58
+am_peak,slow,2511,0.5889,23.55
+am_peak,jammed,304,0.0713,18.64
+midday,free,4479,0.1503,28.75
+midday,slow,24732,0.8297,24.35
+midday,jammed,598,0.0201,18.91
+pm_peak,free,1066,0.081,29.25
+pm_peak,slow,8874,0.674,22.67
+pm_peak,jammed,3226,0.245,17.48
+evening,free,5746,0.3979,30.2
+evening,slow,8223,0.5694,25.02
+evening,jammed,472,0.0327,18.43

@@ -42,7 +42,7 @@
           </button>
           <button type="button" class="preset-btn active" data-preset="realtime">
             <span class="p-name">03. RECOMMENDED</span>
-            <span class="p-sub">eta h=5m | no shift</span>
+            <span class="p-sub">eta h=5m | CM01 -5m</span>
           </button>
         </div>
       </div>
@@ -73,22 +73,22 @@
         <input id="holdMax" type="range" min="0" max="10" step="0.5" value="5.0">
         <div class="slider-bounds"><span>0.0m (MIN)</span><span>10.0m (MAX)</span></div>
 
-        <label class="field-label" for="shiftRoute">Timetable shift route</label>
-        <select id="shiftRoute" class="sr-only" aria-label="Timetable shift route">
-          <option value="CM03">Shift CM03 (both directions)</option>
-          <option value="CM01" selected>Shift CM01 (both directions)</option>
+        <label class="field-label" for="shiftRoute">Timetable shift (connecting direction)</label>
+        <select id="shiftRoute" class="sr-only" aria-label="Connecting direction to shift">
+          <option value="CM03">Shift CM03 towards Kadawatha (Group B connector)</option>
+          <option value="CM01" selected>Shift CM01 towards Pettah (Group A connector)</option>
         </select>
-        <div class="seg-group cols-2" role="group" aria-label="Route shift selector">
-          <button type="button" class="seg-btn" data-shift-route="CM03">CM03 (KAD-MAK)</button>
-          <button type="button" class="seg-btn active" data-shift-route="CM01">CM01 (PET-MAK)</button>
+        <div class="seg-group cols-2" role="group" aria-label="Connecting direction to shift">
+          <button type="button" class="seg-btn" data-shift-route="CM03">CM03 TO KAD</button>
+          <button type="button" class="seg-btn active" data-shift-route="CM01">CM01 TO PET</button>
         </div>
 
         <label class="field-label" for="shiftMin">
           <span>Schedule shift Delta</span>
-          <span class="field-value" id="shiftMinVal">0 min</span>
+          <span class="field-value" id="shiftMinVal">-5 min</span>
         </label>
-        <input id="shiftMin" type="range" min="-30" max="30" step="5" value="0">
-        <div class="slider-bounds"><span>-30m EARLIER</span><span>+30m LATER</span></div>
+        <input id="shiftMin" type="range" min="-10" max="10" step="5" value="-5">
+        <div class="slider-bounds"><span>-10m EARLIER</span><span>+10m LATER</span></div>
       </div>
 
       <div class="control-group">
@@ -110,13 +110,6 @@
         </label>
         <input id="capacityPax" type="range" min="40" max="120" step="10" value="80">
         <div class="slider-bounds"><span>40 PAX</span><span>120 PAX</span></div>
-
-        <label class="field-label" for="peakSpeed">
-          <span>Peak target car speed</span>
-          <span class="field-value" id="peakSpeedVal">24.1 km/h</span>
-        </label>
-        <input id="peakSpeed" type="range" min="16" max="32" step="0.1" value="24.1">
-        <div class="slider-bounds"><span>16 KM/H (SEVERE)</span><span>32 KM/H (LIGHT)</span></div>
       </div>
 
       <div class="control-group">
@@ -159,7 +152,7 @@
           <li><strong>Traffic DTMC:</strong> 3-state peak/off-peak Markov chain calibrated via stationary distribution bisection (peak 06:00-09:00 and 17:00-20:00).</li>
           <li><strong>Boarding at Borella:</strong> local and through-ticket passengers board first come, first served, up to the bus capacity. A passenger who misses a bus waits for the next one only if it is due within 60 min (patience) and within 120 min of reaching Borella (ticket validity); otherwise they leave for other transport.</li>
           <li><strong>Objective J:</strong> 2.0 * (walk + wait at Borella, plus 60 min for each passenger lost to other transport or with no connection that day) + 1.0 * on-board hold pax-min.</li>
-          <li><strong>Notebook check:</strong> with a preset and default walk, capacity and peak speed, the Mean Missed card compares this run with the notebook reference result (R = 1000 days) and states whether it is within tolerance.</li>
+          <li><strong>Notebook check:</strong> with a preset and default walk and capacity, the Mean Missed card compares this run with the notebook reference result (R = 1000 days) and states whether it is within tolerance.</li>
         </ul>
       </details>
     </aside>

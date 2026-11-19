@@ -199,9 +199,9 @@
       <div class="legend-item"><span class="legend-line route-cm01"></span>CM01 Makumbura - Pettah</div>
       <div class="legend-item"><span class="legend-line route-cm03"></span>CM03 Makumbura - Kadawatha</div>
       <div class="legend-subtitle">Traffic per direction (left lane)</div>
-      <div class="legend-item"><span class="lane-swatch state-0"></span>Free (36 km/h)</div>
-      <div class="legend-item"><span class="lane-swatch state-1"></span>Slow (20 km/h)</div>
-      <div class="legend-item"><span class="lane-swatch state-2"></span>Jammed (10 km/h)</div>
+      <div class="legend-item"><span class="lane-swatch state-0"></span>Free (about 29-36 km/h)</div>
+      <div class="legend-item"><span class="lane-swatch state-1"></span>Slow (about 23-27 km/h)</div>
+      <div class="legend-item"><span class="lane-swatch state-2"></span>Jammed (about 17-19 km/h)</div>
       <div class="legend-subtitle">Buses and passengers</div>
       <div class="legend-item"><span class="legend-bus route-cm01"></span>Bus (bar = load vs capacity)</div>
       <div class="legend-item"><span class="legend-bus is-holding"></span>Connector holding at Borella</div>

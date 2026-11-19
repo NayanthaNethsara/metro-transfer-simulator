@@ -6,10 +6,11 @@ window.SIM_CONFIG = {
     dayStartMin: 240,
     dayEndMin: 1440,
     preDepartureAccumMin: 30,
-    trafficStepMin: 5,
+    trafficStepMin: 30,
+    trafficDataStartMin: 300,
     peakWindowsMin: [
-      [360, 540],
-      [1020, 1200]
+      [420, 540],
+      [960, 1140]
     ]
   },
 
@@ -21,11 +22,11 @@ window.SIM_CONFIG = {
   busParameters: {
     capacityPax: 80,
     doorTimeSec: 12.0,
-    boardTimeSec: 3.0,
+    boardTimeSec: 2.0,
     alightTimeSec: 2.0,
     transferMeanPax: 5.0,
     walkTimeMin: 3.5,
-    passengerPatienceMin: 60.0,
+    passengerPatienceMin: 20.0,
     ticketValidityMin: 120.0,
     alternativeTravelPenaltyMin: 60.0,
     etaNoiseSdMin: 1.0
@@ -37,22 +38,26 @@ window.SIM_CONFIG = {
   },
 
   trafficModel: {
+    // Estimated from cmb_traffic (scripts/extract_cmb_traffic.py): 30-min transition matrices and state speeds by time-of-day band.
     stateNames: ["Free", "Slow", "Jammed"],
-    stateSpeedsKmph: [36.0, 20.0, 10.0],
-    jamParamBounds: [0.01, 0.85],
-    targetSpeedOffpeakKmph: 29.37,
-    targetSpeedPeakKmph: 24.10
+    bands: [
+      {"name": "early", "startMin": 0, "endMin": 420, "stateSpeedsKmph": [35.77, 27.04, 17.84], "matrix": [[0.8913, 0.1063, 0.0025], [0.0556, 0.7222, 0.2222], [0.0, 0.3763, 0.6237]]},
+      {"name": "am_peak", "startMin": 420, "endMin": 540, "stateSpeedsKmph": [31.58, 23.55, 18.64], "matrix": [[0.7805, 0.2195, 0.0], [0.0528, 0.9335, 0.0138], [0.0, 0.3763, 0.6237]]},
+      {"name": "midday", "startMin": 540, "endMin": 960, "stateSpeedsKmph": [28.75, 24.35, 18.91], "matrix": [[0.7667, 0.2328, 0.0005], [0.0287, 0.9495, 0.0218], [0.0, 0.63, 0.37]]},
+      {"name": "pm_peak", "startMin": 960, "endMin": 1140, "stateSpeedsKmph": [29.25, 22.67, 17.48], "matrix": [[0.7536, 0.2451, 0.0013], [0.0161, 0.8455, 0.1384], [0.0, 0.2839, 0.7161]]},
+      {"name": "evening", "startMin": 1140, "endMin": 100000, "stateSpeedsKmph": [30.2, 25.02, 18.43], "matrix": [[0.9676, 0.0324, 0.0], [0.2677, 0.7285, 0.0038], [0.0, 0.7412, 0.2588]]}
+    ]
   },
 
   notebookReference: {
-    description: "Notebook consolidated policy comparison (seed = 42, R = 1000 CRN days, LMT-GO timetable of 19 Nov 2026, w = 3.5 min, C = 80, cmb_traffic speeds, OSRM road distances)",
+    description: "Notebook consolidated policy comparison (seed = 42, R = 1000 CRN days, LMT-GO timetable of 19 Nov 2026, cmb_traffic traffic chain, w = 3.5 min, C = 80, patience 20 min, OSRM road distances)",
     tolerancePp: 2.0,
     minDaysForCheck: 300,
     calibratedAlphas: {
-      CM01_MAK_to_FOR: 0.698,
-      CM01_FOR_to_MAK: 0.806,
-      CM03_MAK_to_KAD: 0.637,
-      CM03_KAD_to_MAK: 0.654
+      CM01_MAK_to_FOR: 0.727,
+      CM01_FOR_to_MAK: 0.832,
+      CM03_MAK_to_KAD: 0.677,
+      CM03_KAD_to_MAK: 0.646
     },
     scenarios: [
       {
@@ -61,12 +66,12 @@ window.SIM_CONFIG = {
         holdMaxMin: 0.0,
         shiftRoute: "CM01",
         shiftMin: 0,
-        missAllPct: 25.57,
-        missAllCi95: 0.48,
-        missAPct: 27.65,
-        missBPct: 23.87,
-        objectiveJ: 14807.1,
-        objectiveJCi95: 102.7
+        missAllPct: 16.48,
+        missAllCi95: 0.45,
+        missAPct: 16.94,
+        missBPct: 16.06,
+        objectiveJ: 15791.2,
+        objectiveJCi95: 126.5
       },
       {
         label: "Hold only, schedule h = 5 min",
@@ -74,38 +79,51 @@ window.SIM_CONFIG = {
         holdMaxMin: 5.0,
         shiftRoute: "CM01",
         shiftMin: 0,
-        missAllPct: 16.99,
-        missAllCi95: 0.43,
-        missAPct: 20.69,
-        missBPct: 14.00,
-        objectiveJ: 14213.0,
-        objectiveJCi95: 103.3
+        missAllPct: 12.35,
+        missAllCi95: 0.35,
+        missAPct: 10.16,
+        missBPct: 14.08,
+        objectiveJ: 15180.3,
+        objectiveJCi95: 122.2
       },
       {
-        label: "Recommended: real-time hold h = 5 min, current timetable",
+        label: "Hold only, real-time h = 5 min, current timetable",
         policy: "realtime",
         holdMaxMin: 5.0,
         shiftRoute: "CM01",
         shiftMin: 0,
-        missAllPct: 17.48,
-        missAllCi95: 0.44,
-        missAPct: 21.20,
-        missBPct: 14.47,
-        objectiveJ: 13425.6,
-        objectiveJCi95: 100.5
+        missAllPct: 12.73,
+        missAllCi95: 0.36,
+        missAPct: 10.60,
+        missBPct: 14.41,
+        objectiveJ: 14781.5,
+        objectiveJCi95: 109.4
       },
       {
-        label: "Best shift alone, CM01 -5 min",
+        label: "Recommended: CM01 towards Pettah -5 min + real-time hold h = 5 min",
+        policy: "realtime",
+        holdMaxMin: 5.0,
+        shiftRoute: "CM01",
+        shiftMin: -5,
+        missAllPct: 15.43,
+        missAllCi95: 0.43,
+        missAPct: 16.50,
+        missBPct: 14.51,
+        objectiveJ: 14577.2,
+        objectiveJCi95: 113.7
+      },
+      {
+        label: "Best shift alone, CM01 towards Pettah +5 min",
         policy: "none",
         holdMaxMin: 0.0,
         shiftRoute: "CM01",
-        shiftMin: -5,
-        missAllPct: 25.80,
-        missAllCi95: 0.48,
-        missAPct: 34.08,
-        missBPct: 19.10,
-        objectiveJ: 14431.8,
-        objectiveJCi95: 96.5
+        shiftMin: 5,
+        missAllPct: 15.34,
+        missAllCi95: 0.39,
+        missAPct: 14.53,
+        missBPct: 15.97,
+        objectiveJ: 15690.1,
+        objectiveJCi95: 111.6
       }
     ]
   },
@@ -118,7 +136,7 @@ window.SIM_CONFIG = {
       borellaStopIndex: 3,
       scheduledRunMin: 75,
       segmentDistancesKm: [11.45, 2.76, 1.95, 1.88, 3.11, 0.51],
-      baseArrivalRatePaxPerMin: [0.45, 0.35, 0.30, 0.20, 0.12, 0.0, 0.0],
+      baseArrivalRatePaxPerMin: [0.90, 0.70, 0.60, 0.40, 0.24, 0.00, 0.00],
       stops: ["Makumbura", "Sethsiripaya", "Rajagiriya", "Borella (Singer Mega)", "Town Hall", "Colombo Fort", "Pettah"]
     },
     CM01_FOR_to_MAK: {
@@ -128,7 +146,7 @@ window.SIM_CONFIG = {
       borellaStopIndex: 2,
       scheduledRunMin: 75,
       segmentDistancesKm: [3.68, 1.85, 2.40, 2.67, 11.29],
-      baseArrivalRatePaxPerMin: [0.65, 0.25, 0.20, 0.15, 0.10, 0.0],
+      baseArrivalRatePaxPerMin: [1.30, 0.50, 0.40, 0.30, 0.20, 0.00],
       stops: ["Pettah", "Town Hall", "Borella (Singer Mega)", "Rajagiriya", "Sethsiripaya", "Makumbura"]
     },
     CM03_MAK_to_KAD: {
@@ -138,7 +156,7 @@ window.SIM_CONFIG = {
       borellaStopIndex: 4,
       scheduledRunMin: 120,
       segmentDistancesKm: [5.98, 1.12, 7.20, 2.36, 0.73, 8.96, 5.78],
-      baseArrivalRatePaxPerMin: [0.32, 0.20, 0.20, 0.25, 0.20, 0.15, 0.10, 0.0],
+      baseArrivalRatePaxPerMin: [0.64, 0.40, 0.40, 0.50, 0.40, 0.30, 0.20, 0.00],
       stops: ["Makumbura", "Apeksha Hospital", "Nawinna", "Narahenpita Junction", "Borella 02 (YMBA)", "Campbell Park", "Kelaniya University", "Kadawatha"]
     },
     CM03_KAD_to_MAK: {
@@ -148,7 +166,7 @@ window.SIM_CONFIG = {
       borellaStopIndex: 3,
       scheduledRunMin: 120,
       segmentDistancesKm: [5.90, 8.44, 0.80, 2.35, 7.17, 1.18, 5.85],
-      baseArrivalRatePaxPerMin: [0.28, 0.20, 0.20, 0.20, 0.15, 0.12, 0.10, 0.0],
+      baseArrivalRatePaxPerMin: [0.56, 0.40, 0.40, 0.40, 0.30, 0.24, 0.20, 0.00],
       stops: ["Kadawatha", "Kelaniya University", "Campbell Park", "Borella 02 (YMBA)", "Narahenpita Junction", "Nawinna", "Apeksha Hospital", "Makumbura"]
     }
   },
