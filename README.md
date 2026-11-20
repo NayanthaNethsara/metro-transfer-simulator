@@ -23,7 +23,7 @@ Uncoordinated timetables, road traffic variability, dwell-time fluctuations and 
 
 **Interactive web demo:** Open the [live demo](https://nayanthanethsara.github.io/metro-transfer-simulator/), or clone/download this repository and double-click `docs/index.html` in any modern browser (Chrome, Edge, or Firefox).
 
-**Google Colab notebook:** Click the Open in Colab badge above and select `Runtime -> Run all`.
+**Google Colab notebook:** Click the Open in Colab badge above and select `Runtime -> Run all`. A full run takes about 4 min on a free Colab CPU runtime (about 1 min on a laptop); the measured time is printed at the end.
 
 **Run locally (optional):**
 
