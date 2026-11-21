@@ -1,15 +1,20 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Metro Transfer Simulator: Borella Interchange Control</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
   <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
   <header>
     <div class="header-title-block">
@@ -18,8 +23,10 @@
       <div class="alpha-line" id="alphaReadout">Calibrating alpha...</div>
     </div>
     <div class="header-badges">
-      <div class="badge-pill"><span class="badge-dot" id="dotCm01"></span><span id="trafficBadgeCm01">CM01: FREE</span></div>
-      <div class="badge-pill"><span class="badge-dot" id="dotCm03"></span><span id="trafficBadgeCm03">CM03: FREE</span></div>
+      <div class="badge-pill"><span class="badge-dot" id="dotCm01"></span><span id="trafficBadgeCm01">CM01: FREE</span>
+      </div>
+      <div class="badge-pill"><span class="badge-dot" id="dotCm03"></span><span id="trafficBadgeCm03">CM03: FREE</span>
+      </div>
       <div class="clock-badge" id="simClock">DAY 1 | 07:30</div>
     </div>
   </header>
@@ -28,19 +35,39 @@
     <aside class="panel" aria-label="Simulation Controls">
       <div class="control-group">
         <div class="section-header">
-          <h2 class="section-title">01. Presets</h2>
+          <h2 class="section-title">01. Playback</h2>
+        </div>
+
+        <div class="button-grid top-actions">
+          <button type="button" id="startBtn" class="action-btn">Start</button>
+          <button type="button" id="resetBtn" class="action-btn secondary">Reset</button>
+          <button type="button" id="batchRunBtn" class="action-btn secondary">Run All R</button>
+          <button type="button" id="nextDayBtn" class="action-btn secondary">+1 Day</button>
+        </div>
+
+        <label class="field-label" for="animSpeed">
+          <span>Playback speed</span>
+          <span class="field-value" id="animSpeedVal">0.5x</span>
+        </label>
+        <input id="animSpeed" type="range" min="0.5" max="10" step="0.5" value="0.5">
+        <div class="slider-bounds"><span>0.5x</span><span>10.0x</span></div>
+      </div>
+
+      <div class="control-group">
+        <div class="section-header">
+          <h2 class="section-title">02. Presets</h2>
         </div>
         <div class="preset-row">
           <button type="button" class="preset-btn" data-preset="baseline">
-            <span class="p-name">01. Baseline</span>
+            <span class="p-name">Baseline</span>
             <span class="p-sub">none, h = 0m</span>
           </button>
           <button type="button" class="preset-btn" data-preset="sched5">
-            <span class="p-name">02. Sched Hold</span>
+            <span class="p-name">Sched Hold</span>
             <span class="p-sub">sched, h = 5m</span>
           </button>
           <button type="button" class="preset-btn active" data-preset="realtime">
-            <span class="p-name">03. Recommended</span>
+            <span class="p-name">Recommended</span>
             <span class="p-sub">ETA h = 5m</span>
           </button>
         </div>
@@ -48,7 +75,7 @@
 
       <div class="control-group">
         <div class="section-header">
-          <h2 class="section-title">02. Borella Holding</h2>
+          <h2 class="section-title">03. Borella Holding</h2>
         </div>
 
         <label class="field-label" for="policy">Borella holding rule</label>
@@ -62,7 +89,8 @@
           <button type="button" class="seg-btn" data-policy="schedule">SCHEDULE</button>
           <button type="button" class="seg-btn active" data-policy="realtime">REAL-TIME</button>
         </div>
-        <div class="rule-box" id="policyRuleBox">Connectors wait up to h minutes past their natural Borella departure for every linked feeder.</div>
+        <div class="rule-box" id="policyRuleBox">Connectors wait up to h minutes past their natural Borella departure
+          for every linked feeder.</div>
 
         <label class="field-label" for="holdMax">
           <span>Max hold time h</span>
@@ -91,7 +119,7 @@
 
       <div class="control-group">
         <div class="section-header">
-          <h2 class="section-title">03. Corridor &amp; Fleet</h2>
+          <h2 class="section-title">04. Corridor &amp; Fleet</h2>
         </div>
 
         <label class="field-label" for="walkTime">
@@ -111,15 +139,8 @@
 
       <div class="control-group">
         <div class="section-header">
-          <h2 class="section-title">04. Monte Carlo</h2>
+          <h2 class="section-title">05. Monte Carlo</h2>
         </div>
-
-        <label class="field-label" for="animSpeed">
-          <span>Playback speed</span>
-          <span class="field-value" id="animSpeedVal">2.5x</span>
-        </label>
-        <input id="animSpeed" type="range" min="0.5" max="10" step="0.5" value="2.5">
-        <div class="slider-bounds"><span>0.5x</span><span>10.0x</span></div>
 
         <label class="field-label" for="repTotal">
           <span>Monte Carlo days R</span>
@@ -130,25 +151,23 @@
 
         <label class="field-label" for="seed"><span>Random seed</span></label>
         <input id="seed" type="number" value="42" min="1" step="1">
-
-        <div class="button-grid">
-          <button type="button" id="startBtn" class="action-btn">Start</button>
-          <button type="button" id="batchRunBtn" class="action-btn secondary">Run All R</button>
-          <button type="button" id="nextDayBtn" class="action-btn secondary">+1 Day</button>
-          <button type="button" id="resetBtn" class="action-btn secondary">Reset</button>
-        </div>
       </div>
 
       <details>
         <summary>About &amp; Model Rules</summary>
-        <p>Client-side port (<code>docs/sim-engine.js</code>) using notebook-calibrated <code>alpha</code> factors, OSM/OSRM geometry (<code>docs/corridor-geo.js</code>), and 5-band <code>cmb_traffic</code> Markov speeds (<code>docs/config.js</code>).</p>
+        <p>Client-side port (<code>docs/sim-engine.js</code>) using notebook-calibrated <code>alpha</code> factors,
+          OSM/OSRM geometry (<code>docs/corridor-geo.js</code>), and 5-band <code>cmb_traffic</code> Markov speeds
+          (<code>docs/config.js</code>).</p>
         <ul>
           <li><strong>Inspection:</strong> Click any bus, table row, or log item to jump to that Borella event.</li>
           <li><strong>Dwell:</strong> <code>(12 + 2 * alight + 2 * board) / 60</code> min.</li>
-          <li><strong>Traffic:</strong> 3-state DTMC (30-min slots; peaks 07:00&#8211;09:00, 16:00&#8211;19:00; free before 05:00).</li>
+          <li><strong>Traffic:</strong> 3-state DTMC (30-min slots; peaks 07:00&#8211;09:00, 16:00&#8211;19:00; free
+            before 05:00).</li>
           <li><strong>Queueing:</strong> FCFS Borella boarding; patience 20 min, ticket validity 120 min.</li>
-          <li><strong>Objective J:</strong> <code>2.0 * (walk + wait + 60m lost penalty) + 1.0 * hold</code> pax-min.</li>
-          <li><strong>Check:</strong> Preset runs compare Mean Missed against <code>R=1000</code> notebook references (&plusmn;2.0 pp).</li>
+          <li><strong>Objective J:</strong> <code>2.0 * (walk + wait + 60m lost penalty) + 1.0 * hold</code> pax-min.
+          </li>
+          <li><strong>Check:</strong> Preset runs compare Mean Missed against <code>R=1000</code> notebook references
+            (&plusmn;2.0 pp).</li>
         </ul>
       </details>
     </aside>
@@ -169,44 +188,57 @@
       </div>
 
       <div class="map-shell">
-        <div id="corridorMap" class="corridor-map" role="region" aria-label="Street map of the CM01 and CM03 corridors with live buses, traffic and Borella transfers"></div>
+        <div id="corridorMap" class="corridor-map" role="region"
+          aria-label="Street map of the CM01 and CM03 corridors with live buses, traffic and Borella transfers"></div>
       </div>
 
       <div class="stats-grid">
         <div class="stat-card">
           <div class="k">Transfers Made (Today)</div>
           <div class="v ok" id="outTodayMade">0</div>
-          <div class="kpi-bar"><div class="kpi-bar-fill ok" id="barTodayMade"></div></div>
+          <div class="kpi-bar">
+            <div class="kpi-bar-fill ok" id="barTodayMade"></div>
+          </div>
           <div class="kpi-sub" id="subTodayMade">0% of settled today</div>
         </div>
         <div class="stat-card">
           <div class="k">Transfers Missed (Today)</div>
           <div class="v bad" id="outTodayMissed">0</div>
-          <div class="kpi-bar"><div class="kpi-bar-fill bad" id="barTodayMissed"></div></div>
+          <div class="kpi-bar">
+            <div class="kpi-bar-fill bad" id="barTodayMissed"></div>
+          </div>
           <div class="kpi-sub" id="subTodayMissed">Timing / capacity</div>
         </div>
         <div class="stat-card">
           <div class="k">Active on Network</div>
           <div class="v" id="outActive">0 buses / 0 pax</div>
-          <div class="kpi-bar"><div class="kpi-bar-fill" id="barActive"></div></div>
+          <div class="kpi-bar">
+            <div class="kpi-bar-fill" id="barActive"></div>
+          </div>
           <div class="kpi-sub" id="subActive">0 walking</div>
         </div>
         <div class="stat-card">
           <div class="k">Mean Missed (95% CI)</div>
           <div class="v" id="outMissAll">-</div>
-          <div class="kpi-bar"><div class="kpi-bar-fill warn" id="barMissAll"></div></div>
+          <div class="kpi-bar">
+            <div class="kpi-bar-fill warn" id="barMissAll"></div>
+          </div>
           <div class="kpi-sub" id="subMissAll">Completed days</div>
         </div>
         <div class="stat-card">
           <div class="k">Group A vs Group B Miss</div>
           <div class="v" id="outMissAB">-</div>
-          <div class="kpi-bar"><div class="kpi-bar-fill" id="barMissAB"></div></div>
+          <div class="kpi-bar">
+            <div class="kpi-bar-fill" id="barMissAB"></div>
+          </div>
           <div class="kpi-sub" id="subMissAB">A: KAD-PET | B: PET-KAD</div>
         </div>
         <div class="stat-card">
           <div class="k">Objective J (pax-min)</div>
           <div class="v" id="outObjJ">-</div>
-          <div class="kpi-bar"><div class="kpi-bar-fill" id="barObjJ"></div></div>
+          <div class="kpi-bar">
+            <div class="kpi-bar-fill" id="barObjJ"></div>
+          </div>
           <div class="kpi-sub" id="subObjJ">2x wait + 1x on-board hold</div>
         </div>
       </div>
@@ -216,7 +248,8 @@
           <h2 class="section-title">Research Panel: Monte Carlo Estimates</h2>
           <span class="section-hint">HOVER CHART FOR VALUES</span>
         </div>
-        <canvas id="researchCanvas" aria-label="Running mean of missed transfers with 95% confidence band, and the daily cost J split into wait and hold"></canvas>
+        <canvas id="researchCanvas"
+          aria-label="Running mean of missed transfers with 95% confidence band, and the daily cost J split into wait and hold"></canvas>
       </div>
 
       <div class="bottom-panels">
@@ -253,11 +286,23 @@
     </section>
   </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <footer class="site-footer">
+    <p class="footer-note">Interactive simulation demo using published LMT-GO schedules and historical traffic models; outputs are approximate and for exploratory modelling only, not official transit operations.</p>
+    <nav class="footer-links" aria-label="Project links">
+      <a href="https://github.com/nayanthanethsara/metro-transfer-simulator" target="_blank" rel="noopener noreferrer">GitHub</a>
+      <a href="https://colab.research.google.com/github/nayanthanethsara/metro-transfer-simulator/blob/main/notebook/metro-transfer-simulator.ipynb" target="_blank" rel="noopener noreferrer">Colab Notebook</a>
+      <a href="https://github.com/nayanthanethsara/metro-transfer-simulator/blob/main/THEORY.md" target="_blank" rel="noopener noreferrer">Theory</a>
+      <a href="https://github.com/nayanthanethsara/metro-transfer-simulator/blob/main/USER_GUIDE.md" target="_blank" rel="noopener noreferrer">User Guide</a>
+    </nav>
+  </footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script src="config.js"></script>
   <script src="corridor-geo.js"></script>
   <script src="corridor-map.js"></script>
   <script src="sim-engine.js"></script>
   <script src="script.js"></script>
 </body>
+
 </html>

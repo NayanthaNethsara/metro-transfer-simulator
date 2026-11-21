@@ -683,12 +683,34 @@
     document.querySelectorAll(".preset-btn").forEach((b) => b.classList.remove("active"));
   }
 
+  function applyParameterChange() {
+    const wasRunning = state.running;
+    updateControlReadouts();
+    resetSimulation();
+    if (wasRunning) {
+      startSimulation();
+    }
+  }
+
+  function handleRepTotalChange() {
+    const params = readUIParams();
+    updateControlReadouts();
+    if (params.repTotal < state.missAllHistory.length) {
+      applyParameterChange();
+      return;
+    }
+    if ($("startBtn").disabled && state.missAllHistory.length < params.repTotal) {
+      $("startBtn").disabled = false;
+      $("startBtn").textContent = state.running ? "Pause" : "Start";
+    }
+    renderFrame();
+  }
+
   document.querySelectorAll("[data-policy]").forEach((btn) => {
     btn.addEventListener("click", () => {
       clearActivePreset();
       $("policy").value = btn.dataset.policy;
-      updateControlReadouts();
-      resetSimulation();
+      applyParameterChange();
     });
   });
 
@@ -696,25 +718,21 @@
     btn.addEventListener("click", () => {
       clearActivePreset();
       $("shiftRoute").value = btn.dataset.shiftRoute;
-      updateControlReadouts();
-      resetSimulation();
+      applyParameterChange();
     });
   });
 
-  ["holdMax", "shiftMin", "walkTime", "capacityPax", "repTotal"].forEach((id) => {
+  ["holdMax", "shiftMin", "walkTime", "capacityPax"].forEach((id) => {
     $(id).addEventListener("input", () => {
       clearActivePreset();
-      updateControlReadouts();
-      resetSimulation();
+      applyParameterChange();
     });
   });
 
+  $("repTotal").addEventListener("input", handleRepTotalChange);
   $("animSpeed").addEventListener("input", updateControlReadouts);
   ["policy", "shiftRoute", "seed"].forEach((id) => {
-    $(id).addEventListener("change", () => {
-      updateControlReadouts();
-      resetSimulation();
-    });
+    $(id).addEventListener("change", applyParameterChange);
   });
 
   document.querySelectorAll(".preset-btn").forEach((btn) => {
@@ -735,8 +753,7 @@
         $("holdMax").value = "5.0";
         $("shiftMin").value = "0";
       }
-      updateControlReadouts();
-      resetSimulation();
+      applyParameterChange();
     });
   });
 
